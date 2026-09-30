@@ -1,13 +1,12 @@
 """initial clinic schema
 
 Revision ID: ef676d97f0ce
-Revises: 
+Revises:
 Create Date: 2026-10-01 00:45:34.832805
 
 """
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = 'ef676d97f0ce'
 down_revision = None

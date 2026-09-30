@@ -133,7 +133,10 @@ def create_catalog_item(db: OrmSession, *, name: str, category: str, default_pri
         raise AppError("errors.invalid_category", status_code=400, code="invalid_category")
     from app.core.money import to_money
 
-    price = to_money(default_price)
+    try:
+        price = to_money(default_price)
+    except ValueError:
+        raise AppError("errors.invalid_price", status_code=400, code="invalid_price") from None
     if price < 0:
         raise AppError("errors.invalid_price", status_code=400, code="invalid_price")
     exists = db.execute(
@@ -189,7 +192,10 @@ def add_patient_treatment(
 
     get_patient_or_404(db, patient_id)
     tooth = validate_tooth(tooth)
-    price_dec = to_money(price) if price not in (None, "") else Decimal("0")
+    try:
+        price_dec = to_money(price) if price not in (None, "") else Decimal("0")
+    except ValueError:
+        raise AppError("errors.invalid_price", status_code=400, code="invalid_price") from None
     if price_dec < 0:
         raise AppError("errors.invalid_price", status_code=400, code="invalid_price")
 

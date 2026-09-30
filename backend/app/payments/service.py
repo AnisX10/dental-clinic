@@ -83,7 +83,10 @@ def create_payment(
     Serializes on the patient row via advisory lock, recomputes balance inside
     the transaction, refuses zero/negative amounts and overpayment.
     """
-    amount_dec = to_money(amount)
+    try:
+        amount_dec = to_money(amount)
+    except ValueError:
+        raise AppError("errors.invalid_amount", status_code=400, code="invalid_amount") from None
     if amount_dec <= 0:
         raise AppError("errors.invalid_amount", status_code=400, code="invalid_amount")
     patient = db.get(Patient, patient_id)

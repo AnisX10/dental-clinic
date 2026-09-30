@@ -1,6 +1,5 @@
 """Alembic environment wired to the application engine."""
 from alembic import context
-from sqlalchemy import pool
 
 from app.core.db import get_engine
 from app.core.models import Base

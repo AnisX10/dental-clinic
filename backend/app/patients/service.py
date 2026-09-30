@@ -5,6 +5,7 @@ from pathlib import Path
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session as OrmSession
 
+from app.core.api_utils import serialize_medical, serialize_patient  # noqa: F401 (re-exported)
 from app.core.errors import AppError
 from app.core.models import Attachment, MedicalProfile, Patient
 from app.core.services import next_patient_code

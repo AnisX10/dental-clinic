@@ -23,10 +23,13 @@ _last_run: dict = {}
 
 
 def _pg_dump_path() -> str | None:
+    """Locate pg_dump: bundled with pgserver first, then system PATH."""
     try:
         import pgserver
 
-        return pgserver.utils.pg_bin_dir()
+        candidate = Path(pgserver.__file__).parent / "pginstall" / "bin"
+        if (candidate / "pg_dump.exe").is_file() or (candidate / "pg_dump").is_file():
+            return str(candidate)
     except Exception:
         pass
     from shutil import which
@@ -48,6 +51,11 @@ def run_backup(db: OrmSession, *, kind: str, reason: str = "") -> BackupRecord:
 
     stamp = now_tz().strftime("%Y%m%d_%H%M%S")
     target = backups_dir / f"clinic_{kind}_{stamp}.dump"
+    # Same-second backups must not overwrite each other: disambiguate the name.
+    counter = 2
+    while target.exists():
+        target = backups_dir / f"clinic_{kind}_{stamp}_{counter}.dump"
+        counter += 1
 
     url = get_engine().url
     bin_dir = _pg_dump_path()

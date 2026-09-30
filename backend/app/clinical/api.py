@@ -189,7 +189,10 @@ def update_catalog_item(
         item.category = payload.category
         changes.append("category")
     if payload.default_price is not None:
-        new_price = to_money(payload.default_price)
+        try:
+            new_price = to_money(payload.default_price)
+        except ValueError:
+            raise AppError("errors.invalid_price", status_code=400, code="invalid_price") from None
         if new_price < 0:
             raise AppError("errors.invalid_price", status_code=400, code="invalid_price")
         if new_price != item.default_price:
