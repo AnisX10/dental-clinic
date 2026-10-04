@@ -64,7 +64,7 @@ def health():
 
 _dist = FRONTEND_DIST
 if _dist.is_dir():
-    app.mount("/_assets", StaticFiles(directory=_dist / "_nuxt"), name="spa-assets")
+    app.mount("/_assets", StaticFiles(directory=_dist / "_assets"), name="spa-assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa(full_path: str):
