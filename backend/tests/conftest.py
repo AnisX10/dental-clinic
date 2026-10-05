@@ -83,6 +83,8 @@ def client(db_url, monkeypatch):
         "backup_records", "clinical_notes", "documents", "medical_profiles",
         "patient_treatments", "payments", "sessions", "tooth_states",
         "treatment_catalog", "clinic_settings", "patients", "users",
+        "lab_invoice_payments", "lab_invoices", "lab_orders", "labs",
+        "stock_movements", "stock_items", "treatment_consumables",
     ]
     with engine.begin() as conn:
         conn.execute(text(f"TRUNCATE {', '.join(tables)} RESTART IDENTITY CASCADE"))

@@ -3,9 +3,9 @@
 Design notes:
 - Money uses Numeric(12,2) everywhere (never floats).
 - Clinical/financial records are never hard-deleted; corrections are new
-  records (append-only payments) or status changes (appointments).
-- Append-only event tables keep the history of appointments, backups and
-  sensitive actions (audit log).
+  records (append-only payments) or status changes (appointments, lab orders).
+- Append-only event tables keep the history of appointments, backups, stock
+  movements and sensitive actions (audit log).
 """
 from datetime import date, datetime, time
 from decimal import Decimal
@@ -386,3 +386,198 @@ class BackupRecord(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False)  # success / failed
     error: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now, index=True)
+
+
+# --------------------------------------------------------------------------- #
+# Laboratory (prostheses sent to external labs + supplier invoices)
+# --------------------------------------------------------------------------- #
+
+
+class Lab(Base):
+    """External dental laboratory (supplier of prosthetic work)."""
+
+    __tablename__ = "labs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    phone: Mapped[str] = mapped_column(String(30), nullable=False, default="")
+    address: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+    __table_args__ = (UniqueConstraint("name", name="uq_lab_name"),)
+
+
+class LabOrder(Base):
+    """Prosthetic work sent to a lab for a patient.
+
+    Status workflow: envoye -> en_fabrication -> pret -> recu (+ annule).
+    Financial records are never hard-deleted; cancellation is a status.
+    """
+
+    __tablename__ = "lab_orders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    lab_id: Mapped[int] = mapped_column(
+        ForeignKey("labs.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    # couronne / bridge / prothese / gouttiere / autre
+    work_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    # FDI tooth numbers as entered, e.g. "26,27"
+    teeth: Mapped[str] = mapped_column(String(60), nullable=False, default="")
+    shade: Mapped[str] = mapped_column(String(20), nullable=False, default="")
+    price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="envoye", index=True)
+    sent_date: Mapped[date] = mapped_column(Date, nullable=False)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    received_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+    patient: Mapped[Patient] = relationship(lazy="joined")
+    lab: Mapped[Lab] = relationship(lazy="joined")
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('envoye','en_fabrication','pret','recu','annule')",
+            name="ck_lab_order_status",
+        ),
+        CheckConstraint("price >= 0", name="ck_lab_order_price"),
+        CheckConstraint(
+            "work_type IN ('couronne','bridge','prothese','gouttiere','autre')",
+            name="ck_lab_order_work_type",
+        ),
+    )
+
+
+class LabInvoice(Base):
+    """Invoice received from a lab (monthly statement, per-case, ...)."""
+
+    __tablename__ = "lab_invoices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    lab_id: Mapped[int] = mapped_column(
+        ForeignKey("labs.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    number: Mapped[str] = mapped_column(String(60), nullable=False)
+    label: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    issued_date: Mapped[date] = mapped_column(Date, nullable=False)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+    lab: Mapped[Lab] = relationship(lazy="joined")
+
+    __table_args__ = (
+        UniqueConstraint("lab_id", "number", name="uq_lab_invoice_lab_number"),
+        CheckConstraint("amount > 0", name="ck_lab_invoice_amount"),
+    )
+
+
+class LabInvoicePayment(Base):
+    """Append-only cash payments toward a lab invoice."""
+
+    __tablename__ = "lab_invoice_payments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    invoice_id: Mapped[int] = mapped_column(
+        ForeignKey("lab_invoices.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    note: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now, index=True)
+
+    __table_args__ = (CheckConstraint("amount > 0", name="ck_lab_payment_amount_positive"),)
+
+
+# --------------------------------------------------------------------------- #
+# Stock / materials
+# --------------------------------------------------------------------------- #
+
+
+class StockItem(Base):
+    """Clinic material with on-hand quantity and low-stock threshold."""
+
+    __tablename__ = "stock_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    # consommable / equipement / bureau / autre
+    category: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    unit: Mapped[str] = mapped_column(String(20), nullable=False, default="unite")
+    stock_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    min_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+    __table_args__ = (
+        CheckConstraint("stock_quantity >= 0", name="ck_stock_quantity_non_negative"),
+        CheckConstraint("min_quantity >= 0", name="ck_stock_min_non_negative"),
+        CheckConstraint(
+            "category IN ('consommable','equipement','bureau','autre')",
+            name="ck_stock_category",
+        ),
+        UniqueConstraint("name", name="uq_stock_item_name"),
+    )
+
+
+class StockMovement(Base):
+    """Append-only ledger of every stock change. Ledger sums to on-hand stock."""
+
+    __tablename__ = "stock_movements"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    item_id: Mapped[int] = mapped_column(
+        ForeignKey("stock_items.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    # signed quantity: + restock, - consumption, ± adjustment
+    delta: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    # initial / restock / consumption / adjustment / correction
+    reason: Mapped[str] = mapped_column(String(20), nullable=False)
+    note: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    # loose business reference, e.g. ("patient_treatment", 42) for auto-deduction
+    reference_type: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+    reference_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now, index=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "reason IN ('initial','restock','consumption','adjustment','correction')",
+            name="ck_stock_movement_reason",
+        ),
+        CheckConstraint("delta != 0", name="ck_stock_movement_delta_nonzero"),
+    )
+
+
+class TreatmentConsumable(Base):
+    """Link between a catalog treatment and a stock item auto-consumed on use."""
+
+    __tablename__ = "treatment_consumables"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    catalog_item_id: Mapped[int] = mapped_column(
+        ForeignKey("treatment_catalog.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    stock_item_id: Mapped[int] = mapped_column(
+        ForeignKey("stock_items.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+    __table_args__ = (
+        UniqueConstraint("catalog_item_id", "stock_item_id", name="uq_treatment_consumable"),
+        CheckConstraint("quantity > 0", name="ck_treatment_consumable_quantity"),
+    )

@@ -228,6 +228,12 @@ def add_patient_treatment(
     )
     db.add(treatment)
     db.flush()
+    # Auto-deduct linked consumables from stock (same transaction, idempotent,
+    # clamps at zero — never blocks the treatment).
+    if catalog_item is not None:
+        from app.stock.service import apply_treatment_consumption
+
+        apply_treatment_consumption(db, treatment, actor_id=actor_id)
     return treatment
 
 

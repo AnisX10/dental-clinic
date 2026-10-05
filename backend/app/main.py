@@ -39,9 +39,11 @@ from app.backup.api import router as backup_router  # noqa: E402
 from app.clinical.api import router as clinical_router  # noqa: E402
 from app.core.auth_api import router as auth_router  # noqa: E402
 from app.documents.api import router as documents_router  # noqa: E402
+from app.labs.api import router as labs_router  # noqa: E402
 from app.patients.api import router as patients_router  # noqa: E402
 from app.payments.api import router as payments_router  # noqa: E402
 from app.settings.api import router as settings_router  # noqa: E402
+from app.stock.api import router as stock_router  # noqa: E402
 
 app.include_router(auth_router)
 app.include_router(patients_router)
@@ -49,6 +51,8 @@ app.include_router(agenda_router)
 app.include_router(clinical_router)
 app.include_router(payments_router)
 app.include_router(documents_router)
+app.include_router(labs_router)
+app.include_router(stock_router)
 app.include_router(settings_router)
 app.include_router(backup_router)
 
