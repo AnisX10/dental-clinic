@@ -5,6 +5,7 @@
  */
 const { t } = useI18n()
 const api = useApi()
+const toast = useToast()
 
 interface PatientRow { id: number, nom: string, prenom: string, telephone: string }
 type ToothState = "sain" | "a_traiter" | "traite" | "absent"
@@ -20,7 +21,6 @@ const states = ref<Record<string, string>>({})
 const treatmentsByTooth = ref<Record<string, { name: string }[]>>({})
 const loading = ref(false)
 const errorMsg = ref("")
-const successMsg = ref("")
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 
 watch(patientQuery, (q) => {
@@ -69,10 +69,7 @@ async function setTooth(tooth: number) {
   try {
     await api.put(`/clinical/patients/${patient.value.id}/odontogram`, { tooth, state: next })
     states.value = { ...states.value, [String(tooth)]: next }
-    successMsg.value = t("odontogram.saved")
-    setTimeout(() => {
-      successMsg.value = ""
-    }, 1500)
+    toast.success("odontogram.saved")
   }
   catch (e: any) {
     errorMsg.value = e?.messageKey ?? "errors.generic"
@@ -125,12 +122,17 @@ function toothTitle(tooth: number): string {
     </div>
 
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
-    <div v-if="successMsg" class="alert alert-success">{{ successMsg }}</div>
 
-    <div v-if="!patient" class="card empty-state">{{ t("patients.aucun") }}</div>
+    <div v-if="!patient" class="card empty-state">
+      <span class="empty-icon">◌</span>
+      {{ t("common.search_placeholder") }}
+    </div>
 
     <div v-else class="card">
-      <div v-if="loading" class="loading-line">{{ t("common.loading") }}</div>
+      <div v-if="loading" style="padding:8px 0;" aria-hidden="true">
+        <div class="skeleton skeleton-line w-60" style="margin:0 auto 14px;max-width:70%;" />
+        <div class="skeleton skeleton-line w-80" style="margin:0 auto 14px;max-width:70%;" />
+      </div>
       <template v-else>
         <div class="odontogram">
           <div class="tooth-row">

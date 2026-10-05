@@ -5,6 +5,7 @@
  */
 const { t } = useI18n()
 const api = useApi()
+const toast = useToast()
 
 interface PatientRow {
   id: number
@@ -23,7 +24,6 @@ const page = ref(1)
 const data = ref<ListData | null>(null)
 const loading = ref(true)
 const errorMsg = ref("")
-const successMsg = ref("")
 let debounce: ReturnType<typeof setTimeout> | undefined
 
 async function load() {
@@ -63,7 +63,7 @@ async function createPatient() {
     const created = await api.post<{ patient: { id: number } }>("/patients", form.value)
     showNew.value = false
     form.value = { nom: "", prenom: "", telephone: "" }
-    successMsg.value = "patients.created"
+    toast.success("patients.created")
     await navigateTo(`/patients/${created.patient.id}`)
   }
   catch (e: any) {
@@ -102,8 +102,14 @@ const totalPages = computed(() =>
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
 
     <div class="card" style="padding:0;">
-      <div v-if="loading" class="loading-line">{{ t("common.loading") }}</div>
-      <div v-else-if="!data?.patients?.length" class="empty-state">{{ t("patients.aucun") }}</div>
+      <div v-if="loading" style="padding:8px 16px 16px;" aria-hidden="true">
+        <div v-for="i in 7" :key="i" class="skeleton skeleton-row" />
+      </div>
+      <div v-else-if="!data?.patients?.length" class="empty-state">
+        <span class="empty-icon">☰</span>
+        {{ t("patients.aucun") }}
+        <div class="empty-hint">{{ t("patients.nouveau_patient") }}</div>
+      </div>
       <table v-else class="table">
         <thead>
           <tr>
@@ -139,11 +145,7 @@ const totalPages = computed(() =>
       </div>
     </div>
 
-    <div v-if="successMsg" class="alert alert-success">{{ t(successMsg) }}</div>
-
-    <div v-if="showNew" class="overlay" @click.self="showNew = false">
-      <div class="dialog" role="dialog" aria-modal="true">
-        <h2>{{ t("patients.nouveau_patient") }}</h2>
+    <AppDialog :open="showNew" :title="t('patients.nouveau_patient')" @close="showNew = false">
         <div class="field" style="margin-bottom:12px;">
           <label for="np-nom">{{ t("patients.nom") }}</label>
           <input id="np-nom" v-model="form.nom" class="input">
@@ -163,7 +165,6 @@ const totalPages = computed(() =>
             {{ t("common.save") }}
           </button>
         </div>
-      </div>
-    </div>
+    </AppDialog>
   </div>
 </template>

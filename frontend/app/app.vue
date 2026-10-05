@@ -22,4 +22,5 @@ onMounted(() => {
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
+  <ToastHost />
 </template>

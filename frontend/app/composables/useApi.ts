@@ -77,6 +77,7 @@ export function useApi() {
     get: <T>(path: string, query?: ApiOptions["query"]) => request<T>(path, { query }),
     post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body }),
     put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body }),
+    patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),
     del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
     upload: <T>(path: string, file: File) => {
       const form = new FormData()

@@ -4,8 +4,15 @@
  * FINANCES / PARAMÈTRES groups per DESIGN.md §5) + sticky page header.
  * RTL-safe via CSS logical properties.
  */
+const route = useRoute()
 const { t, lang, setLang } = useI18n()
 const auth = useAuth()
+
+/** Mobile drawer state (≤760px): hamburger toggles, scrim/nav click closes. */
+const sidebarOpen = ref(false)
+watch(() => route.path, () => {
+  sidebarOpen.value = false
+})
 
 const groups = computed(() => [
   {
@@ -25,6 +32,8 @@ const groups = computed(() => [
     items: [
       { to: "/traitements", icon: "✚", label: t("nav.traitements") },
       { to: "/odontogramme", icon: "◌", label: t("nav.odontogramme") },
+      { to: "/lab", icon: "⚒", label: t("nav.lab") },
+      { to: "/stock", icon: "◫", label: t("nav.stock") },
     ],
   },
   {
@@ -43,7 +52,8 @@ const groups = computed(() => [
 
 <template>
   <div class="app-shell">
-    <aside class="sidebar">
+    <div v-if="sidebarOpen" class="sidebar-scrim" @click="sidebarOpen = false" />
+    <aside class="sidebar" :class="{ open: sidebarOpen }">
       <div class="brand" style="display:flex;align-items:center;gap:10px;padding:4px 12px;">
         <span
           style="width:34px;height:34px;border-radius:8px;background:var(--color-primary);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;"
@@ -59,6 +69,7 @@ const groups = computed(() => [
             :to="item.to"
             class="nav-item"
             :title="item.label"
+            @click="sidebarOpen = false"
           >
             <span aria-hidden="true" style="width:20px;text-align:center;">{{ item.icon }}</span>
             <span class="nav-label-text">{{ item.label }}</span>
@@ -70,6 +81,12 @@ const groups = computed(() => [
     <div class="main-area">
       <header class="page-header">
         <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+          <button
+            class="sidebar-toggle"
+            :aria-label="t('common.menu')"
+            :aria-expanded="sidebarOpen"
+            @click="sidebarOpen = !sidebarOpen"
+          >☰</button>
           <strong style="font-size:15px;">{{ t("common.app_name") }}</strong>
         </div>
         <div style="display:flex;align-items:center;gap:12px;">

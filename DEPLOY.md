@@ -65,6 +65,9 @@ Close the window to stop the app. The database survives restarts.
   **Paramètres** (default 20:00) while the app is running.
 - Manual backup: **Paramètres → Sauvegarder maintenant**.
 - Files land in `data\backups\clinic_YYYYMMDD_HHMMSS.dump` (compressed).
+- Backups cover the whole database, so the laboratoire (work orders,
+  supplier invoices) and stock (articles, movements, treatment links)
+  tables are included automatically — nothing extra to configure.
 - Retention: last 14 automatic + 5 manual backups; the most recent backup
   is never deleted.
 - Restore drill (recommended once before go-live):

@@ -425,3 +425,227 @@ a { color: inherit; text-decoration: none; }
   .print-area, .print-area * { visibility: visible; }
   .print-area { position: absolute; inset: 0; width: 100%; }
 }
+
+/* ------------------------------------------------------------------ *
+ * V1.1 design-system polish: motion, skeletons, toasts, dialogs,
+ * micro-states, responsive drawer. Same tokens, higher finish.
+ * ------------------------------------------------------------------ */
+:root {
+  --ring: 0 0 0 3px color-mix(in srgb, var(--color-primary) 22%, transparent);
+  --ring-danger: 0 0 0 3px color-mix(in srgb, var(--color-danger) 20%, transparent);
+  --shadow-raised: 0 10px 34px rgba(20, 35, 45, 0.14);
+  --shadow-toast: 0 8px 28px rgba(20, 35, 45, 0.18);
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --speed: 140ms;
+}
+
+/* Motion — small, tasteful, opt-out */
+.btn, .input, .select, .textarea, .nav-item, .tab, .card {
+  transition: background var(--speed) var(--ease), border-color var(--speed) var(--ease),
+    box-shadow var(--speed) var(--ease), transform var(--speed) var(--ease);
+}
+.btn-primary:hover:not(:disabled) { box-shadow: 0 4px 14px color-mix(in srgb, var(--color-primary) 35%, transparent); }
+.btn-primary:active:not(:disabled) { transform: translateY(1px); }
+.btn-danger:hover:not(:disabled) { box-shadow: 0 4px 14px color-mix(in srgb, var(--color-danger) 30%, transparent); }
+
+.input:hover:not(:focus), .select:hover:not(:focus), .textarea:hover:not(:focus) {
+  border-color: #C4CDD5;
+}
+.input.input-error, .select.input-error { border-color: var(--color-danger); }
+.input.input-error:focus, .select.input-error:focus { box-shadow: var(--ring-danger); }
+
+.field-error { color: var(--color-danger); font-size: 12.5px; }
+
+/* Skeleton loaders */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #EDF0F3;
+  border-radius: var(--radius-sm);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+.skeleton-line { height: 12px; margin: 14px 0; }
+.skeleton-line.w-60 { width: 60%; }
+.skeleton-line.w-40 { width: 40%; }
+.skeleton-line.w-80 { width: 80%; }
+.skeleton-row { height: 42px; margin: 2px 0; border-radius: var(--radius-sm); }
+
+/* Toasts */
+.toast-region {
+  position: fixed;
+  top: 14px;
+  inset-inline-end: 14px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(360px, calc(100vw - 28px));
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-inline-start: 3px solid var(--color-text-muted);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-toast);
+  padding: 10px 12px;
+  font-size: 13.5px;
+}
+.toast-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-muted); flex-shrink: 0; }
+.toast-success { border-inline-start-color: var(--color-success); }
+.toast-success .toast-dot { background: var(--color-success); }
+.toast-error { border-inline-start-color: var(--color-danger); }
+.toast-error .toast-dot { background: var(--color-danger); }
+.toast-msg { flex: 1; }
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+.toast-close:hover { color: var(--color-text); }
+.toast-enter-active, .toast-leave-active { transition: opacity 180ms var(--ease), transform 180ms var(--ease); }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-6px); }
+
+/* Dialog upgrades (works for legacy markup too) */
+body.dialog-open { overflow: hidden; }
+.dialog-enter-active, .dialog-leave-active { transition: opacity 150ms var(--ease); }
+.dialog-enter-active .dialog, .dialog-leave-active .dialog { transition: transform 150ms var(--ease), opacity 150ms var(--ease); }
+.dialog-enter-from, .dialog-leave-to { opacity: 0; }
+.dialog-enter-from .dialog, .dialog-leave-to .dialog { transform: translateY(8px) scale(0.985); opacity: 0; }
+.dialog-wide { max-width: 680px; }
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: var(--space-4);
+}
+.dialog-head h2 { font-size: 17px; }
+.dialog-x {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+}
+.dialog-x:hover { color: var(--color-text); background: var(--color-bg); }
+
+/* Tables: horizontal scroll on small screens, numeric alignment */
+.table-wrap { overflow-x: auto; }
+.table .num { font-variant-numeric: tabular-nums; text-align: end; white-space: nowrap; }
+
+/* New badges: lab workflow + stock alerts */
+.badge-envoye::before { background: var(--color-text-muted); }
+.badge-en_fabrication::before { background: var(--color-warning); }
+.badge-pret::before { background: var(--color-accent); }
+.badge-recu { color: var(--color-success); border-color: color-mix(in srgb, var(--color-success) 30%, white); }
+.badge-recu::before { background: var(--color-success); }
+.badge-annule { color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 30%, white); }
+.badge-annule::before { background: var(--color-danger); }
+.badge-low { color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 30%, white); }
+.badge-low::before { background: var(--color-danger); }
+.badge-active {
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 40%, white);
+  background: color-mix(in srgb, var(--color-primary) 8%, white);
+}
+.badge-active::before { background: var(--color-primary); }
+
+/* Patient autocomplete hits inside dialogs */
+.search-hits {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+  max-height: 220px;
+  overflow-y: auto;
+  position: relative;
+  z-index: 10;
+}
+.search-hits button {
+  display: block;
+  width: 100%;
+  text-align: start;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.search-hits button:hover { background: var(--color-bg); }
+
+/* Empty states with icon + hint */
+.empty-state { text-align: center; padding: var(--space-6) var(--space-4); }
+.empty-state .empty-icon { font-size: 26px; opacity: 0.35; display: block; margin-bottom: 6px; }
+.empty-state .empty-hint { color: var(--color-text-muted); font-size: 12.5px; margin-top: 4px; }
+
+/* Delta colors for stock ledger */
+.delta-pos { color: var(--color-success); }
+.delta-neg { color: var(--color-danger); }
+
+/* Mobile drawer sidebar */
+.sidebar-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--color-text);
+  align-items: center;
+  justify-content: center;
+}
+.sidebar-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 33, 43, 0.4);
+  z-index: 40;
+}
+@media (max-width: 760px) {
+  .sidebar-toggle { display: inline-flex; }
+  .sidebar {
+    position: fixed;
+    inset-inline-start: 0;
+    top: 0;
+    z-index: 50;
+    transform: translateX(-105%);
+    transition: transform 200ms var(--ease);
+    box-shadow: var(--shadow-raised);
+    width: var(--sidebar-w) !important;
+  }
+  [dir="rtl"] .sidebar { transform: translateX(105%); }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar .nav-label-text, .sidebar .nav-group-label, .sidebar .brand-name { display: revert; }
+  .page-content { padding: var(--space-4); }
+  .page-header { padding-inline: var(--space-4); }
+  .search-input { max-width: none; flex: 1; }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .btn, .input, .select, .textarea, .nav-item, .tab, .card, .sidebar { transition: none; }
+  .skeleton::after { animation: none; }
+  .toast-enter-active, .toast-leave-active, .dialog-enter-active, .dialog-leave-active { transition: none; }
+}

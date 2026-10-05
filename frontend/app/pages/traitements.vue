@@ -7,6 +7,7 @@ const { t } = useI18n()
 const api = useApi()
 const money = useMoney()
 const auth = useAuth()
+const toast = useToast()
 
 const CATEGORIES = ["Consultation", "Soins", "Chirurgie", "Prothèse", "Orthodontie", "Parodontologie", "Autre"]
 
@@ -15,7 +16,6 @@ interface CatalogItem { id: number, name: string, category: string, default_pric
 const items = ref<CatalogItem[]>([])
 const loading = ref(true)
 const errorMsg = ref("")
-const successMsg = ref("")
 
 async function load() {
   loading.value = true
@@ -32,13 +32,6 @@ async function load() {
   }
 }
 await load()
-
-function flash(msg: string) {
-  successMsg.value = msg
-  setTimeout(() => {
-    successMsg.value = ""
-  }, 2500)
-}
 
 const grouped = computed(() =>
   CATEGORIES.map(cat => ({ category: cat, rows: items.value.filter(i => i.category === cat) }))
@@ -72,11 +65,11 @@ async function save() {
   try {
     if (editId.value === null) {
       await api.post("/clinical/catalog", form.value)
-      flash(t("common.save"))
+      toast.success("common.save")
     }
     else {
       await api.put(`/clinical/catalog/${editId.value}`, form.value)
-      flash(t("common.save"))
+      toast.success("common.save")
     }
     showForm.value = false
     await load()
@@ -103,10 +96,14 @@ async function save() {
     </div>
 
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
-    <div v-if="successMsg" class="alert alert-success">{{ successMsg }}</div>
 
-    <div v-if="loading" class="loading-line">{{ t("common.loading") }}</div>
-    <div v-else-if="!items.length" class="card empty-state">{{ t("treatments.aucun") }}</div>
+    <div v-if="loading" class="card" style="padding:16px;" aria-hidden="true">
+      <div v-for="i in 6" :key="i" class="skeleton skeleton-line" :class="i % 2 ? 'w-60' : 'w-40'" />
+    </div>
+    <div v-else-if="!items.length" class="card empty-state">
+      <span class="empty-icon">✚</span>
+      {{ t("treatments.aucun") }}
+    </div>
 
     <div v-for="g in grouped" v-else :key="g.category" class="card" style="padding:0;margin-bottom:16px;">
       <div class="nav-group-label" style="padding:12px 16px 0;">{{ g.category }}</div>
@@ -127,9 +124,11 @@ async function save() {
       </table>
     </div>
 
-    <div v-if="showForm" class="overlay" @click.self="showForm = false">
-      <div class="dialog" role="dialog" aria-modal="true">
-        <h2>{{ editId === null ? t("common.add") : t("common.edit") }}</h2>
+    <AppDialog
+      :open="showForm"
+      :title="editId === null ? t('common.add') : t('common.edit')"
+      @close="showForm = false"
+    >
         <div class="field" style="margin-bottom:12px;">
           <label for="cat-name">{{ t("treatments.title") }}</label>
           <input id="cat-name" v-model="form.name" class="input">
@@ -149,7 +148,6 @@ async function save() {
           <button class="btn btn-secondary" @click="showForm = false">{{ t("common.cancel") }}</button>
           <button class="btn btn-primary" :disabled="saving" @click="save">{{ t("common.save") }}</button>
         </div>
-      </div>
-    </div>
+    </AppDialog>
   </div>
 </template>

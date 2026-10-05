@@ -9,6 +9,12 @@ built from the spec in [`dental-clinic-spec/`](dental-clinic-spec/README.md).
   `data/pgdata`.
 - **French default UI, Arabic (RTL) available** — fully offline, fonts bundled.
 - **Cash-only payments** in DZD with per-patient ledger (Total / Payé / Reste).
+- **Laboratoire** — work orders (envoyé → en fabrication → prêt → reçu, with
+  cancellation) and supplier invoices with partial payments per lab.
+- **Stock & matériaux** — append-only movement ledger (race-safe, never
+  negative), inventory corrections, low-stock alerts, stock valuation, and
+  consumables linked to catalogue treatments so stock is deducted
+  automatically when a treatment is recorded.
 - **Automatic daily backups** via `pg_dump` + manual one-click backup.
 
 ## Layout
@@ -48,14 +54,15 @@ cd backend
 ..\.venv\Scripts\python -m ruff check .
 ```
 
-49 tests cover auth, patients, agenda transitions, clinical modules, the
-concurrency-safe payments ledger, documents, and backups. Tests run against a
+66 tests cover auth, patients, agenda transitions, clinical modules, the
+concurrency-safe payments ledger, documents, backups, lab orders/invoices,
+and the stock ledger (including treatment auto-deduction). Tests run against a
 separate disposable PostgreSQL instance (`data/pgdata-test`).
 
 ## Security notes
 
 - Argon2id password hashing; session tokens stored hashed (httpOnly cookie).
 - Login rate-limited (8 attempts / 5 min / user+IP).
-- Owner-only: settings, catalogue prices, manual backup.
+- Owner-only: settings, catalogue prices, manual backup, stock↔treatment links.
 - All mutations audited in `audit_log` (actor, action, IP).
 - No external services: no CDN fonts, no telemetry, no AI, no cloud.

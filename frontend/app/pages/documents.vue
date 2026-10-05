@@ -7,6 +7,7 @@
 const { t } = useI18n()
 const api = useApi()
 const dates = useDates()
+const toast = useToast()
 
 interface DocRow { id: number, patient_id: number, doc_type: string, title: string, created_at: string }
 interface DocFull extends DocRow { content: any }
@@ -23,7 +24,6 @@ const patientResults = ref<PatientRow[]>([])
 const docs = ref<DocRow[]>([])
 const loading = ref(false)
 const errorMsg = ref("")
-const successMsg = ref("")
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 
 watch(patientQuery, (q) => {
@@ -70,13 +70,6 @@ async function reloadDocs() {
   docs.value = list.documents
 }
 
-function flash(msg: string) {
-  successMsg.value = msg
-  setTimeout(() => {
-    successMsg.value = ""
-  }, 2500)
-}
-
 // ---- Create dialog ---------------------------------------------------------
 const showNew = ref(false)
 const form = ref({ doc_type: "ordonnance", lines: ["", "", ""], note: "", text: "", duration_days: 0 })
@@ -116,7 +109,7 @@ async function create() {
       content,
     })
     showNew.value = false
-    flash(t("documents.created"))
+    toast.success("documents.created")
     await reloadDocs()
     await openDoc(created.document.id)
   }
@@ -206,9 +199,11 @@ onMounted(async () => {
     </div>
 
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
-    <div v-if="successMsg" class="alert alert-success">{{ successMsg }}</div>
 
-    <div v-if="!patient" class="card empty-state">{{ t("common.search_placeholder") }}</div>
+    <div v-if="!patient" class="card empty-state">
+      <span class="empty-icon">▤</span>
+      {{ t("common.search_placeholder") }}
+    </div>
 
     <template v-else>
       <!-- Preview / print -->
@@ -259,8 +254,14 @@ onMounted(async () => {
 
       <!-- List -->
       <div v-else class="card" style="padding:0;">
-        <div v-if="loading" class="loading-line">{{ t("common.loading") }}</div>
-        <div v-else-if="!docs.length" class="empty-state">{{ t("documents.aucun") }}</div>
+        <div v-if="loading" style="padding:8px 16px 16px;" aria-hidden="true">
+          <div v-for="i in 4" :key="i" class="skeleton skeleton-row" />
+        </div>
+        <div v-else-if="!docs.length" class="empty-state">
+          <span class="empty-icon">▤</span>
+          {{ t("documents.aucun") }}
+          <div class="empty-hint">{{ t("documents.nouveau") }}</div>
+        </div>
         <table v-else class="table">
           <thead>
             <tr>
@@ -279,9 +280,7 @@ onMounted(async () => {
     </template>
 
     <!-- Create document dialog -->
-    <div v-if="showNew" class="overlay" @click.self="showNew = false">
-      <div class="dialog" role="dialog" aria-modal="true">
-        <h2>{{ t("documents.nouveau") }}</h2>
+    <AppDialog :open="showNew" :title="t('documents.nouveau')" @close="showNew = false">
         <p class="small muted" style="margin-bottom:12px;">
           {{ patient?.nom }} {{ patient?.prenom }}
         </p>
@@ -325,7 +324,6 @@ onMounted(async () => {
           <button class="btn btn-secondary" @click="showNew = false">{{ t("common.cancel") }}</button>
           <button class="btn btn-primary" :disabled="saving" @click="create">{{ t("common.save") }}</button>
         </div>
-      </div>
-    </div>
+    </AppDialog>
   </div>
 </template>

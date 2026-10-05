@@ -8,6 +8,7 @@ const { t } = useI18n()
 const api = useApi()
 const dates = useDates()
 const auth = useAuth()
+const toast = useToast()
 
 interface Settings {
   clinic_name: string, doctor_name: string, address: string, phone: string,
@@ -26,7 +27,6 @@ const backup = ref<BackupStatus | null>(null)
 const users = ref<{ id: number, username: string, full_name: string, role: string, is_owner: boolean, is_active: boolean }[]>([])
 const loading = ref(true)
 const errorMsg = ref("")
-const successMsg = ref("")
 const running = ref(false)
 const saving = ref(false)
 const canEdit = computed(() => auth.user.value?.is_owner ?? false)
@@ -52,13 +52,6 @@ async function load() {
 }
 await load()
 
-function flash(msg: string) {
-  successMsg.value = msg
-  setTimeout(() => {
-    successMsg.value = ""
-  }, 3000)
-}
-
 async function save() {
   if (!settings.value) return
   saving.value = true
@@ -73,7 +66,7 @@ async function save() {
       footer_note: settings.value.footer_note,
       backup_hour: Number(settings.value.backup_hour),
     })
-    flash(t("settings.saved"))
+    toast.success("settings.saved")
     await load()
   }
   catch (e: any) {
@@ -89,7 +82,7 @@ async function runBackup() {
   errorMsg.value = ""
   try {
     await api.post("/backup/run")
-    flash(t("settings.backup_done"))
+    toast.success("settings.backup_done")
     await load()
   }
   catch (e: any) {
@@ -108,8 +101,13 @@ async function runBackup() {
     </div>
 
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
-    <div v-if="successMsg" class="alert alert-success">{{ successMsg }}</div>
-    <div v-if="loading" class="loading-line">{{ t("common.loading") }}</div>
+    <div v-if="loading" style="max-width:640px;" aria-hidden="true">
+      <div class="skeleton skeleton-line w-40" />
+      <div class="skeleton skeleton-line w-80" />
+      <div class="skeleton skeleton-line w-60" />
+      <div class="skeleton skeleton-line w-80" />
+      <div class="skeleton skeleton-line w-40" />
+    </div>
 
     <template v-else-if="settings">
       <p v-if="!canEdit" class="alert">{{ t("settings.owner_only_hint") }}</p>

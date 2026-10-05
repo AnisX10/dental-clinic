@@ -6,6 +6,7 @@
 const { t } = useI18n()
 const api = useApi()
 const dates = useDates()
+const toast = useToast()
 
 interface Appt {
   id: number
@@ -23,7 +24,6 @@ const day = ref(dates.todayIso())
 const appts = ref<Appt[]>([])
 const loading = ref(true)
 const errorMsg = ref("")
-const successMsg = ref("")
 
 function shiftDay(delta: number) {
   const d = new Date(`${day.value}T12:00:00Z`)
@@ -105,10 +105,7 @@ async function create() {
       motif: form.value.motif,
     })
     showNew.value = false
-    successMsg.value = t("common.save")
-    setTimeout(() => {
-      successMsg.value = ""
-    }, 2500)
+    toast.success("common.save")
     day.value = form.value.date
     await load()
   }
@@ -148,11 +145,16 @@ function statusClass(a: Appt): string {
     </div>
 
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
-    <div v-if="successMsg" class="alert alert-success">{{ successMsg }}</div>
 
     <div class="card" style="padding:0;">
-      <div v-if="loading" class="loading-line">{{ t("common.loading") }}</div>
-      <div v-else-if="!appts.length" class="empty-state">{{ t("today.aucun_rdv") }}</div>
+      <div v-if="loading" style="padding:8px 16px 16px;" aria-hidden="true">
+        <div v-for="i in 5" :key="i" class="skeleton skeleton-row" />
+      </div>
+      <div v-else-if="!appts.length" class="empty-state">
+        <span class="empty-icon">▦</span>
+        {{ t("today.aucun_rdv") }}
+        <div class="empty-hint">{{ t("today.nouveau_rdv") }}</div>
+      </div>
       <table v-else class="table">
         <tbody>
           <tr v-for="a in appts" :key="a.id">
@@ -177,9 +179,7 @@ function statusClass(a: Appt): string {
     </div>
 
     <!-- Create appointment dialog -->
-    <div v-if="showNew" class="overlay" @click.self="showNew = false">
-      <div class="dialog" role="dialog" aria-modal="true">
-        <h2>{{ t("today.nouveau_rdv") }}</h2>
+    <AppDialog :open="showNew" :title="t('today.nouveau_rdv')" @close="showNew = false">
 
         <div v-if="!selectedPatient" class="field" style="margin-bottom:12px;">
           <label for="rdv-search">{{ t("appointment.patient") }}</label>
@@ -233,7 +233,6 @@ function statusClass(a: Appt): string {
           <button class="btn btn-secondary" @click="showNew = false">{{ t("common.cancel") }}</button>
           <button class="btn btn-primary" :disabled="saving" @click="create">{{ t("common.save") }}</button>
         </div>
-      </div>
-    </div>
+    </AppDialog>
   </div>
 </template>

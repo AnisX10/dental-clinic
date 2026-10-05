@@ -78,8 +78,13 @@ await load()
       </div>
 
       <div class="card" style="padding:0;">
-        <div v-if="loading" class="loading-line">{{ t("common.loading") }}</div>
-        <div v-else-if="!payments.length" class="empty-state">{{ t("payments.aucun") }}</div>
+        <div v-if="loading" style="padding:8px 16px 16px;" aria-hidden="true">
+          <div v-for="i in 5" :key="i" class="skeleton skeleton-row" />
+        </div>
+        <div v-else-if="!payments.length" class="empty-state">
+          <span class="empty-icon">₽</span>
+          {{ t("payments.aucun") }}
+        </div>
         <table v-else class="table">
           <thead>
             <tr>

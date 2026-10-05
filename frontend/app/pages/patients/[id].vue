@@ -11,6 +11,7 @@ const api = useApi()
 const money = useMoney()
 const dates = useDates()
 const auth = useAuth()
+const toast = useToast()
 
 interface Patient {
   id: number, code: string, nom: string, prenom: string, telephone: string,
@@ -25,17 +26,35 @@ interface Ledger {
   payments: { id: number, amount: string, note: string, created_at: string, created_by_name: string }[],
 }
 interface DocRow { id: number, doc_type: string, title: string, created_at: string }
+interface LabOrderRow {
+  id: number
+  lab: { id: number, name: string }
+  work_type: string
+  teeth: string
+  shade: string
+  price: string
+  status: string
+  sent_date: string
+  due_date: string | null
+  received_date: string | null
+}
+
+const WORK_TYPES = ["couronne", "bridge", "prothese", "gouttiere", "autre"] as const
+
+function workTypeLabel(workType: string): string {
+  return WORK_TYPES.includes(workType as (typeof WORK_TYPES)[number]) ? t(`lab.work_${workType}`) : workType
+}
 
 const patient = ref<Patient | null>(null)
 const loading = ref(true)
 const errorMsg = ref("")
-const successMsg = ref("")
 const tab = ref<"resume" | "medical" | "traitements" | "paiements" | "documents">("resume")
 
 const notes = ref<Note[]>([])
 const treatments = ref<Treatment[]>([])
 const ledger = ref<Ledger | null>(null)
 const docs = ref<DocRow[]>([])
+const labOrders = ref<LabOrderRow[]>([])
 
 const tabLoaded = ref<Record<string, boolean>>({})
 
@@ -57,14 +76,16 @@ await loadPatient()
 async function loadTab(name: string) {
   try {
     if (name === "resume") {
-      const [n, tr, lg] = await Promise.all([
+      const [n, tr, lg, lo] = await Promise.all([
         api.get<{ notes: Note[] }>(`/clinical/patients/${patientId}/notes`),
         api.get<{ treatments: Treatment[] }>(`/clinical/patients/${patientId}/treatments`),
         api.get<Ledger>(`/payments/patients/${patientId}/ledger`),
+        api.get<{ orders: LabOrderRow[] }>(`/patients/${patientId}/lab-orders`),
       ])
       notes.value = n.notes
       treatments.value = tr.treatments
       ledger.value = lg
+      labOrders.value = lo.orders
       tabLoaded.value.resume = true
     }
     if (name === "traitements" && !tabLoaded.value.traitements) {
@@ -88,11 +109,8 @@ async function loadTab(name: string) {
 }
 if (patient.value) await loadTab("resume")
 
-function flash(msg: string) {
-  successMsg.value = msg
-  setTimeout(() => {
-    successMsg.value = ""
-  }, 3000)
+function flash(messageKey: string) {
+  toast.success(messageKey)
 }
 
 // ---- New clinical note -----------------------------------------------------
@@ -111,7 +129,7 @@ async function saveNote() {
     tabLoaded.value.resume = false
     tabLoaded.value.traitements = false
     await loadTab(tab.value)
-    flash(t("notes.saved"))
+    flash("notes.saved")
   }
   catch (e: any) {
     noteError.value = e?.messageKey ?? "errors.generic"
@@ -166,7 +184,7 @@ async function saveTreatment() {
     tabLoaded.value.traitements = false
     await loadTab(tab.value)
     await loadPatient()
-    flash(t("treatments.added"))
+    flash("treatments.added")
   }
   catch (e: any) {
     treatmentError.value = e?.messageKey ?? "errors.generic"
@@ -197,7 +215,7 @@ async function savePayment() {
     showPayment.value = false
     tabLoaded.value.paiements = false
     await loadTab(tab.value === "paiements" ? "paiements" : tab.value)
-    flash(t("payments.saved"))
+    flash("payments.saved")
   }
   catch (e: any) {
     paymentError.value = e?.messageKey ?? "errors.generic"
@@ -234,7 +252,7 @@ async function saveMedical() {
     await api.put(`/patients/${patientId}/medical`, payload)
     medicalDirty.value = false
     await loadPatient()
-    flash(t("medical.saved"))
+    flash("medical.saved")
   }
   catch (e: any) {
     errorMsg.value = e?.messageKey ?? "errors.generic"
@@ -267,7 +285,7 @@ async function saveEdit() {
     await api.put(`/patients/${patientId}`, editForm.value)
     showEdit.value = false
     await loadPatient()
-    flash(t("patients.updated"))
+    flash("patients.updated")
   }
   catch (e: any) {
     editError.value = e?.messageKey ?? "errors.generic"
@@ -296,9 +314,12 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
 <template>
   <div>
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
-    <div v-if="successMsg" class="alert alert-success">{{ t(successMsg) }}</div>
 
-    <div v-if="loading" class="loading-line">{{ t("common.loading") }}</div>
+    <div v-if="loading" style="max-width:840px;" aria-hidden="true">
+      <div class="skeleton skeleton-line w-40" />
+      <div class="skeleton skeleton-line w-60" />
+      <div class="skeleton skeleton-line w-80" />
+    </div>
 
     <template v-else-if="patient">
       <div class="toolbar">
@@ -386,6 +407,43 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
                 </span>
               </div>
             </template>
+          </div>
+
+          <div class="card" style="grid-column:1 / -1;">
+            <h2 class="section-title" style="margin-bottom:12px;">{{ t("nav.lab") }}</h2>
+            <div v-if="!labOrders.length" class="empty-state" style="padding:16px 0;">
+              {{ t("lab.aucun_ordre") }}
+            </div>
+            <div v-else class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>{{ t("lab.type_travail") }}</th>
+                    <th>{{ t("lab.labo") }}</th>
+                    <th>{{ t("lab.dents") }}</th>
+                    <th>{{ t("lab.teinte") }}</th>
+                    <th class="num">{{ t("lab.prix") }}</th>
+                    <th>{{ t("lab.date_envoi") }}</th>
+                    <th>{{ t("lab.date_souhaitee") }}</th>
+                    <th>{{ t("lab.recu_le") }}</th>
+                    <th>{{ t("status.envoye") }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="o in labOrders" :key="o.id">
+                    <td style="font-weight:600;">{{ workTypeLabel(o.work_type) }}</td>
+                    <td>{{ o.lab.name }}</td>
+                    <td class="small">{{ o.teeth || "—" }}</td>
+                    <td class="small">{{ o.shade || "—" }}</td>
+                    <td class="num">{{ money.fmt(o.price) }}</td>
+                    <td class="small muted">{{ dates.fmtDate(o.sent_date) }}</td>
+                    <td class="small muted">{{ dates.fmtDate(o.due_date) }}</td>
+                    <td class="small muted">{{ dates.fmtDate(o.received_date) }}</td>
+                    <td><span class="badge" :class="`badge-${o.status}`">{{ t(`status.${o.status}`) }}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </template>
@@ -507,9 +565,7 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
     </template>
 
     <!-- Note dialog -->
-    <div v-if="showNote" class="overlay" @click.self="showNote = false">
-      <div class="dialog" role="dialog" aria-modal="true">
-        <h2>{{ t("notes.nouvelle_note") }}</h2>
+    <AppDialog :open="showNote" :title="t('notes.nouvelle_note')" @close="showNote = false">
         <div class="field" style="margin-bottom:12px;">
           <label for="note-motif">{{ t("notes.motif") }}</label>
           <input id="note-motif" v-model="noteForm.motif" class="input">
@@ -531,13 +587,10 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
           <button class="btn btn-secondary" @click="showNote = false">{{ t("common.cancel") }}</button>
           <button class="btn btn-primary" :disabled="noteSaving" @click="saveNote">{{ t("common.save") }}</button>
         </div>
-      </div>
-    </div>
+    </AppDialog>
 
     <!-- Treatment dialog -->
-    <div v-if="showTreatment" class="overlay" @click.self="showTreatment = false">
-      <div class="dialog" role="dialog" aria-modal="true">
-        <h2>{{ t("treatments.ajout") }}</h2>
+    <AppDialog :open="showTreatment" :title="t('treatments.ajout')" @close="showTreatment = false">
         <div class="field" style="margin-bottom:12px;">
           <label for="trt-item">{{ t("treatments.title") }}</label>
           <select id="trt-item" v-model="treatmentForm.catalog_item_id" class="select">
@@ -578,13 +631,10 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
             {{ t("common.add") }}
           </button>
         </div>
-      </div>
-    </div>
+    </AppDialog>
 
     <!-- Payment dialog -->
-    <div v-if="showPayment" class="overlay" @click.self="showPayment = false">
-      <div class="dialog" role="dialog" aria-modal="true">
-        <h2>{{ t("payments.encaisser") }}</h2>
+    <AppDialog :open="showPayment" :title="t('payments.encaisser')" @close="showPayment = false">
         <p v-if="ledger" class="small muted" style="margin-bottom:12px;">
           {{ t("payments.reste_max") }} : {{ money.fmt(ledger.reste) }}
         </p>
@@ -603,13 +653,10 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
             {{ t("common.save") }}
           </button>
         </div>
-      </div>
-    </div>
+    </AppDialog>
 
     <!-- Edit patient dialog -->
-    <div v-if="showEdit" class="overlay" @click.self="showEdit = false">
-      <div class="dialog" role="dialog" aria-modal="true">
-        <h2>{{ t("patients.edit_title") }}</h2>
+    <AppDialog :open="showEdit" :title="t('patients.edit_title')" @close="showEdit = false">
         <div style="display:flex;gap:12px;">
           <div class="field" style="margin-bottom:12px;flex:1;">
             <label for="ed-nom">{{ t("patients.nom") }}</label>
@@ -649,7 +696,6 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
           <button class="btn btn-secondary" @click="showEdit = false">{{ t("common.cancel") }}</button>
           <button class="btn btn-primary" :disabled="editSaving" @click="saveEdit">{{ t("common.save") }}</button>
         </div>
-      </div>
-    </div>
+    </AppDialog>
   </div>
 </template>

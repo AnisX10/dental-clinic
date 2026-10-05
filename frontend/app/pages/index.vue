@@ -7,6 +7,7 @@ const { t } = useI18n()
 const api = useApi()
 const dates = useDates()
 const money = useMoney()
+const toast = useToast()
 
 interface Appt {
   id: number
@@ -76,7 +77,7 @@ async function setStatus(appt: Appt, to: string) {
     await load()
   }
   catch (e: any) {
-    errorMsg.value = e?.messageKey ?? "errors.generic"
+    toast.error(e?.messageKey ?? "errors.generic")
   }
   finally {
     busyId.value = null
@@ -92,7 +93,7 @@ async function doCancel() {
     await load()
   }
   catch (e: any) {
-    errorMsg.value = e?.messageKey ?? "errors.generic"
+    toast.error(e?.messageKey ?? "errors.generic")
   }
   finally {
     busyId.value = null
@@ -127,9 +128,13 @@ function statusClass(a: Appt): string {
 
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:start;">
       <div class="card" style="padding:0;">
-        <div v-if="loading" class="loading-line">{{ t("common.loading") }}</div>
+        <div v-if="loading" style="padding:8px 16px 16px;" aria-hidden="true">
+          <div v-for="i in 5" :key="i" class="skeleton skeleton-row" />
+        </div>
         <div v-else-if="!data?.appointments?.length" class="empty-state">
+          <span class="empty-icon">◉</span>
           {{ t("today.aucun_rdv") }}
+          <div class="empty-hint">{{ t("today.nouveau_rdv") }}</div>
         </div>
         <table v-else class="table">
           <tbody>
@@ -193,9 +198,8 @@ function statusClass(a: Appt): string {
       </div>
     </div>
 
-    <div v-if="confirmCancel" class="overlay" @click.self="confirmCancel = null">
-      <div class="dialog" role="dialog" aria-modal="true">
-        <h2>{{ t("action.confirmer_cancel") }}</h2>
+    <AppDialog :open="confirmCancel !== null" :title="t('action.confirmer_cancel')" @close="confirmCancel = null">
+      <template v-if="confirmCancel">
         <p>
           {{ confirmCancel.patient.nom }} {{ confirmCancel.patient.prenom }} —
           {{ confirmCancel.date }} {{ confirmCancel.time ?? "" }}
@@ -206,7 +210,7 @@ function statusClass(a: Appt): string {
             {{ t("action.cancel_rdv") }}
           </button>
         </div>
-      </div>
-    </div>
+      </template>
+    </AppDialog>
   </div>
 </template>
