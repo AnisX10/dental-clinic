@@ -56,6 +56,10 @@ export default {
     recettes_du_jour: "مدخول اليوم",
     nombre_paiements: "عدد المدفوعات",
     nouveau_rdv: "موعد جديد",
+    alertes: "تنبيهات",
+    lab_en_cours: "طلبيات قيد الإنجاز",
+    lab_en_retard: "متأخرة",
+    stock_articles_bas: "مواد على وشك النفاد",
   },
   status: {
     a_venir: "قادم",

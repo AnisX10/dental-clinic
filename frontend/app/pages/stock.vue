@@ -58,7 +58,9 @@ const lowCount = ref(0)
 const valuation = ref({ valeur: "0", nb_articles: 0 })
 const loading = ref(true)
 const errorMsg = ref("")
-const lowOnly = ref(false)
+const route = useRoute()
+// /stock?bas=1 ouvre la page avec le filtre « stock bas » actif (lien depuis Aujourd'hui).
+const lowOnly = ref(route.query.bas === "1")
 
 async function load() {
   loading.value = true

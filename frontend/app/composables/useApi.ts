@@ -41,7 +41,7 @@ export function useApi() {
       : ""
     let resp: Response
     try {
-      resp = await fetch(`/api${path}`, {
+      resp = await fetch(`/api${path}${qs}`, {
         method,
         headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
         body: body !== undefined ? JSON.stringify(body) : undefined,

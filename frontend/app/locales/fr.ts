@@ -56,6 +56,10 @@ export default {
     recettes_du_jour: "Recettes du jour",
     nombre_paiements: "Nombre de paiements",
     nouveau_rdv: "Nouveau rendez-vous",
+    alertes: "Alertes",
+    lab_en_cours: "Ordres de travail en cours",
+    lab_en_retard: "en retard",
+    stock_articles_bas: "Articles en stock bas",
   },
   status: {
     a_venir: "À venir",
