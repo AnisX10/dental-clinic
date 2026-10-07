@@ -106,7 +106,7 @@ def test_invalid_tooth_rejected(owner_client, users):
     assert resp.json()["error"]["code"] == "invalid_tooth"
 
 
-def test_odontogram_states_and_treatments(owner_client, users):
+def test_odontogram_conditions_and_treatments(owner_client, users):
     patient = _patient(owner_client)
     item = owner_client.post(
         "/api/clinical/catalog",
@@ -116,17 +116,56 @@ def test_odontogram_states_and_treatments(owner_client, users):
         "/api/clinical/treatments",
         json={"patient_id": patient["id"], "catalog_item_id": item["id"], "tooth": 38},
     )
-    resp = owner_client.put(
-        f"/api/clinical/patients/{patient['id']}/odontogram",
-        json={"tooth": 38, "state": "absent"},
-    )
+    path = f"/api/clinical/patients/{patient['id']}/odontogram"
+    resp = owner_client.put(path, json={"tooth": 38, "condition": "absent"})
     assert resp.status_code == 200
-    og = owner_client.get(f"/api/clinical/patients/{patient['id']}/odontogram").json()
-    assert og["states"]["38"]["state"] == "absent"
+    assert resp.json() == {"tooth": 38, "condition": "absent", "surface": ""}
+    og = owner_client.get(path).json()
+    assert {(c["tooth"], c["surface"]): c["condition"] for c in og["conditions"]} == {(38, ""): "absent"}
     assert og["treatments_by_tooth"]["38"][0]["name"] == "Extraction"
-    # Invalid state rejected
-    resp = owner_client.put(
-        f"/api/clinical/patients/{patient['id']}/odontogram",
-        json={"tooth": 38, "state": "magenta"},
-    )
+    # Invalid condition rejected
+    resp = owner_client.put(path, json={"tooth": 38, "condition": "magenta"})
     assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "invalid_state"
+    # Invalid tooth rejected
+    resp = owner_client.put(path, json={"tooth": 57, "condition": "a_traiter"})
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "invalid_tooth"
+
+
+def test_odontogram_surface_marks(owner_client, users):
+    patient = _patient(owner_client)
+    path = f"/api/clinical/patients/{patient['id']}/odontogram"
+
+    def conds():
+        og = owner_client.get(path).json()
+        return {(c["tooth"], c["surface"]): c["condition"] for c in og["conditions"]}
+
+    # Surface conditions require a valid surface
+    resp = owner_client.put(path, json={"tooth": 16, "condition": "carie"})
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "surface_required"
+    resp = owner_client.put(path, json={"tooth": 16, "condition": "carie", "surface": "haut"})
+    assert resp.status_code == 400
+    # Mark two surfaces; a second condition replaces the first on that surface
+    assert owner_client.put(path, json={"tooth": 16, "condition": "carie", "surface": "occlusale"}).status_code == 200
+    assert owner_client.put(path, json={"tooth": 16, "condition": "obturation", "surface": "occlusale"}).status_code == 200
+    assert owner_client.put(path, json={"tooth": 16, "condition": "carie", "surface": "mesiale"}).status_code == 200
+    assert conds() == {(16, "occlusale"): "obturation", (16, "mesiale"): "carie"}
+    # Whole-tooth conditions replace surface marks on the same tooth
+    assert owner_client.put(path, json={"tooth": 16, "condition": "couronne"}).status_code == 200
+    assert conds() == {(16, ""): "couronne"}
+    # A whole-tooth condition never carries a surface
+    resp = owner_client.put(path, json={"tooth": 16, "condition": "couronne", "surface": "occlusale"})
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "surface_not_allowed"
+    # 'sain' with a surface clears just that mark
+    assert owner_client.put(path, json={"tooth": 16, "condition": "carie", "surface": "distale"}).status_code == 200
+    assert owner_client.put(path, json={"tooth": 16, "condition": "sain", "surface": "distale"}).status_code == 200
+    assert (16, "distale") not in conds()
+    # 'sain' clears the tooth entirely
+    assert owner_client.put(path, json={"tooth": 16, "condition": "sain"}).status_code == 200
+    assert conds() == {}
+    # Deciduous teeth are supported
+    assert owner_client.put(path, json={"tooth": 55, "condition": "carie", "surface": "occlusale"}).status_code == 200
+    assert conds() == {(55, "occlusale"): "carie"}

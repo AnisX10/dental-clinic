@@ -9,6 +9,9 @@ built from the spec in [`dental-clinic-spec/`](dental-clinic-spec/README.md).
   `data/pgdata`.
 - **French default UI, Arabic (RTL) available** — fully offline, fonts bundled.
 - **Cash-only payments** in DZD with per-patient ledger (Total / Payé / Reste).
+- **Odontogramme** — anatomical chart inside the patient file with permanent and
+  deciduous teeth: whole-tooth conditions (à traiter, couronne, bridge, absent)
+  and per-surface carie/obturation marks.
 - **Laboratoire** — work orders (envoyé → en fabrication → prêt → reçu, with
   cancellation) and supplier invoices with partial payments per lab.
 - **Stock & matériaux** — append-only movement ledger (race-safe, never
@@ -54,10 +57,11 @@ cd backend
 ..\.venv\Scripts\python -m ruff check .
 ```
 
-66 tests cover auth, patients, agenda transitions, clinical modules, the
-concurrency-safe payments ledger, documents, backups, lab orders/invoices,
-and the stock ledger (including treatment auto-deduction). Tests run against a
-separate disposable PostgreSQL instance (`data/pgdata-test`).
+67 tests cover auth, patients, agenda transitions, clinical modules (including
+odontogram conditions and surface marks), the concurrency-safe payments
+ledger, documents, backups, lab orders/invoices, and the stock ledger
+(including treatment auto-deduction). Tests run against a separate disposable
+PostgreSQL instance (`data/pgdata-test`).
 
 ## Security notes
 

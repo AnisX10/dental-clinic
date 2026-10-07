@@ -291,35 +291,44 @@ def get_odontogram(
     db: OrmSession = Depends(get_db),
 ):
     return {
-        "teeth": service.FDI_TEETH,
-        "states": service.tooth_states_map(db, patient_id),
+        "conditions": service.tooth_conditions(db, patient_id),
         "treatments_by_tooth": service.treatments_by_tooth(db, patient_id),
     }
 
 
-class ToothStateIn(BaseModel):
+class ToothConditionIn(BaseModel):
     tooth: int
-    state: str
+    condition: str
+    surface: str = ""
 
 
 @router.put("/patients/{patient_id}/odontogram")
-def set_tooth_state(
+def set_tooth_condition(
     patient_id: int,
-    payload: ToothStateIn,
+    payload: ToothConditionIn,
     request: Request,
     user: User = Depends(get_current_user),
     db: OrmSession = Depends(get_db),
 ):
-    result = service.set_tooth_state(
-        db, patient_id=patient_id, tooth=payload.tooth, state=payload.state, actor_id=user.id
+    result = service.set_tooth_condition(
+        db,
+        patient_id=patient_id,
+        tooth=payload.tooth,
+        condition=payload.condition,
+        surface=payload.surface,
+        actor_id=user.id,
     )
     log_action(
         db,
         actor_id=user.id,
-        action="tooth_state_set",
+        action="tooth_condition_set",
         entity="patient",
         entity_id=patient_id,
-        detail={"tooth": payload.tooth, "state": payload.state},
+        detail={
+            "tooth": payload.tooth,
+            "condition": payload.condition,
+            "surface": payload.surface,
+        },
         ip=get_client_ip(request),
     )
     return result

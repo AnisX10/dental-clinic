@@ -303,7 +303,12 @@ class PatientTreatment(Base):
 
 
 class ToothState(Base):
-    """Odontogram state per tooth (FDI numbering). Upserted per patient/tooth."""
+    """Odontogram condition per tooth/surface (FDI numbering). Upserted.
+
+    ``surface`` is '' for whole-tooth conditions (a_traiter, couronne, bridge,
+    absent) and one of the five faces for carie/obturation marks. Rows with
+    condition 'sain' are never stored: a healthy tooth simply has no row.
+    """
 
     __tablename__ = "tooth_states"
 
@@ -312,15 +317,27 @@ class ToothState(Base):
         ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True
     )
     tooth: Mapped[int] = mapped_column(Integer, nullable=False)
-    # sain / a_traiter / traite / absent
-    state: Mapped[str] = mapped_column(String(20), nullable=False, default="sain")
+    # a_traiter / carie / obturation / couronne / bridge / absent
+    state: Mapped[str] = mapped_column(String(20), nullable=False)
+    # '' (whole tooth) / occlusale / mesiale / distale / vestibulaire / linguale
+    surface: Mapped[str] = mapped_column(String(12), nullable=False, default="")
     updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
 
     __table_args__ = (
-        UniqueConstraint("patient_id", "tooth", name="uq_tooth_state_patient_tooth"),
-        CheckConstraint("tooth BETWEEN 11 AND 48", name="ck_tooth_state_tooth"),
-        CheckConstraint("state IN ('sain','a_traiter','traite','absent')", name="ck_tooth_state_value"),
+        UniqueConstraint("patient_id", "tooth", "surface", name="uq_tooth_state_patient_tooth_surface"),
+        CheckConstraint(
+            "(tooth BETWEEN 11 AND 48) OR (tooth BETWEEN 51 AND 85 AND tooth % 10 BETWEEN 1 AND 5)",
+            name="ck_tooth_state_tooth",
+        ),
+        CheckConstraint(
+            "state IN ('a_traiter','carie','obturation','couronne','bridge','absent')",
+            name="ck_tooth_state_value",
+        ),
+        CheckConstraint(
+            "surface IN ('','occlusale','mesiale','distale','vestibulaire','linguale')",
+            name="ck_tooth_state_surface",
+        ),
     )
 
 

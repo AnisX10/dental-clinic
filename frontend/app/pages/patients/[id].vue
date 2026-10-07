@@ -4,6 +4,8 @@
  * Résumé / Médical / Traitements / Paiements / Documents.
  * Quick actions: Nouvelle note · Ajouter un traitement · Odontogramme.
  */
+import type { ToothCondition } from "~/utils/toothShapes"
+
 const route = useRoute()
 const patientId = Number(route.params.id)
 const { t } = useI18n()
@@ -12,6 +14,13 @@ const money = useMoney()
 const dates = useDates()
 const auth = useAuth()
 const toast = useToast()
+
+// --- Odontogramme ---
+const conditions = ref<ToothCondition[]>([])
+const odontoTreatments = ref<Record<number, { name: string }[]>>({})
+const selectedTooth = ref<number | null>(null)
+const odontoBusy = ref(false)
+const dentition = ref<"permanente" | "temporaire">("permanente")
 
 interface Patient {
   id: number, code: string, nom: string, prenom: string, telephone: string,
@@ -48,7 +57,10 @@ function workTypeLabel(workType: string): string {
 const patient = ref<Patient | null>(null)
 const loading = ref(true)
 const errorMsg = ref("")
-const tab = ref<"resume" | "medical" | "traitements" | "paiements" | "documents">("resume")
+type TabKey = "resume" | "medical" | "odontogramme" | "traitements" | "paiements" | "documents"
+const TAB_KEYS: TabKey[] = ["resume", "medical", "odontogramme", "traitements", "paiements", "documents"]
+const queryTab = String(route.query.tab ?? "")
+const tab = ref<TabKey>(TAB_KEYS.includes(queryTab as TabKey) ? (queryTab as TabKey) : "resume")
 
 const notes = ref<Note[]>([])
 const treatments = ref<Treatment[]>([])
@@ -88,6 +100,10 @@ async function loadTab(name: string) {
       labOrders.value = lo.orders
       tabLoaded.value.resume = true
     }
+    if (name === "odontogramme" && !tabLoaded.value.odontogramme) {
+      await loadOdontogram()
+      tabLoaded.value.odontogramme = true
+    }
     if (name === "traitements" && !tabLoaded.value.traitements) {
       const tr = await api.get<{ treatments: Treatment[] }>(`/clinical/patients/${patientId}/treatments`)
       treatments.value = tr.treatments
@@ -107,10 +123,45 @@ async function loadTab(name: string) {
     errorMsg.value = e?.messageKey ?? "errors.generic"
   }
 }
-if (patient.value) await loadTab("resume")
+if (patient.value) await loadTab(tab.value)
 
 function flash(messageKey: string) {
   toast.success(messageKey)
+}
+
+async function loadOdontogram() {
+  const og = await api.get<{ conditions: ToothCondition[], treatments_by_tooth: Record<string, { name: string }[]> }>(
+    `/clinical/patients/${patientId}/odontogram`,
+  )
+  conditions.value = og.conditions
+  const map: Record<number, { name: string }[]> = {}
+  for (const [key, list] of Object.entries(og.treatments_by_tooth ?? {})) map[Number(key)] = list
+  odontoTreatments.value = map
+}
+
+async function applyCondition(payload: { tooth: number, condition: string, surface: string }) {
+  odontoBusy.value = true
+  try {
+    await api.put(`/clinical/patients/${patientId}/odontogram`, payload)
+    await loadOdontogram()
+    flash("odontogram.saved")
+  }
+  catch (e: any) {
+    toast.error(e?.messageKey ?? "errors.generic")
+  }
+  finally {
+    odontoBusy.value = false
+  }
+}
+
+function toothTreatments(tooth: number): { name: string }[] {
+  return odontoTreatments.value[tooth] ?? []
+}
+
+async function onSelectTooth(tooth: number) {
+  selectedTooth.value = tooth
+  await nextTick()
+  document.querySelector(".cond-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" })
 }
 
 // ---- New clinical note -----------------------------------------------------
@@ -298,6 +349,7 @@ async function saveEdit() {
 const tabs = [
   { key: "resume", label: "patient_tabs.resume" },
   { key: "medical", label: "patient_tabs.medical" },
+  { key: "odontogramme", label: "patient_tabs.odontogramme" },
   { key: "traitements", label: "patient_tabs.traitements" },
   { key: "paiements", label: "patient_tabs.paiements" },
   { key: "documents", label: "patient_tabs.documents" },
@@ -340,7 +392,7 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-primary" @click="showNote = true">{{ t("resume.nouvelle_note") }}</button>
           <button class="btn btn-secondary" @click="openTreatment">{{ t("resume.ajouter_traitement") }}</button>
-          <NuxtLink to="/odontogramme" class="btn btn-secondary">{{ t("resume.odontogramme") }}</NuxtLink>
+          <button class="btn btn-secondary" @click="switchTab('odontogramme')">{{ t("resume.odontogramme") }}</button>
         </div>
         <button v-if="hasReste" class="btn btn-primary" @click="openPayment">
           {{ t("payments.encaisser") }}
@@ -498,6 +550,58 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
               </tr>
             </tbody>
           </table>
+        </div>
+      </template>
+
+      <!-- Odontogramme -->
+      <template v-if="tab === 'odontogramme'">
+        <div class="odonto-layout">
+          <div class="card" style="overflow-x:auto;">
+            <div class="odonto-head">
+              <h2 class="section-title">{{ t("odontogram.title") }}</h2>
+              <div class="seg">
+                <button
+                  type="button"
+                  class="seg-btn"
+                  :class="{ active: dentition === 'permanente' }"
+                  @click="dentition = 'permanente'"
+                >
+                  {{ t("odontogram.permanentes") }}
+                </button>
+                <button
+                  type="button"
+                  class="seg-btn"
+                  :class="{ active: dentition === 'temporaire' }"
+                  @click="dentition = 'temporaire'"
+                >
+                  {{ t("odontogram.temporaires") }}
+                </button>
+              </div>
+            </div>
+            <OdontogramToothChart
+              :conditions="conditions"
+              :treatments="odontoTreatments"
+              :selected="selectedTooth"
+              :dentition="dentition"
+              @select="onSelectTooth"
+            />
+          </div>
+          <OdontogramConditionPanel
+            v-if="selectedTooth"
+            :tooth="selectedTooth"
+            :conditions="conditions"
+            :treatments="toothTreatments(selectedTooth)"
+            :busy="odontoBusy"
+            @apply="applyCondition"
+            @close="selectedTooth = null"
+          />
+          <div v-else class="card empty-state">
+            <span class="empty-icon">◌</span>
+            {{ t("odontogram.hint") }}
+            <div v-if="treatments.length" class="empty-hint">
+              {{ t("odontogram.traitements_lies") }} {{ treatments.filter(x => x.tooth).length }}
+            </div>
+          </div>
         </div>
       </template>
 

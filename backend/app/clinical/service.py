@@ -1,7 +1,7 @@
 """Clinical logic: notes, treatment catalog, patient treatments, odontogram."""
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session as OrmSession
 
 from app.core.dates import now_tz
@@ -15,15 +15,22 @@ from app.core.models import (
 from app.core.money import serialize_amount
 from app.patients.service import get_patient_or_404
 
-# FDI permanent teeth, ordered for display: upper right 18..11, upper left 21..28,
-# lower left 38..48 quadrant style handled in the UI; here we validate ranges.
-FDI_TEETH = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
-             48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38]
+# FDI numbering. Display order (upper right 18..11, upper left 21..28, lower
+# left 38..48) is handled in the UI; here the lists validate tooth numbers.
+FDI_PERMANENT = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
+                 48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38]
+FDI_DECIDUOUS = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65,
+                 85, 84, 83, 82, 81, 71, 72, 73, 74, 75]
+# Treatments only apply to permanent teeth (kept for backward compatibility).
+FDI_TEETH = FDI_PERMANENT
 
-TOOTH_STATES = ("sain", "a_traiter", "traite", "absent")
-
-# Treatments a dentist typically applies directly from the odontogram.
-TOOTH_TREATMENT_STATES = ("a_traiter", "traite", "absent")
+# Odontogram conditions. 'sain' is a reset command, never stored: a healthy
+# tooth has no row. Carie/obturation target one of the five surfaces; the other
+# conditions apply to the whole tooth.
+WHOLE_TOOTH_CONDITIONS = ("a_traiter", "couronne", "bridge", "absent")
+SURFACE_CONDITIONS = ("carie", "obturation")
+TOOTH_CONDITIONS = WHOLE_TOOTH_CONDITIONS + SURFACE_CONDITIONS
+TOOTH_SURFACES = ("occlusale", "mesiale", "distale", "vestibulaire", "linguale")
 
 
 def validate_note_input(*, motif: str, diagnostic: str, traitement: str, remarques: str) -> dict:
@@ -46,6 +53,17 @@ def validate_tooth(tooth: int | None) -> int | None:
     except (TypeError, ValueError):
         raise AppError("errors.invalid_tooth", status_code=400, code="invalid_tooth") from None
     if tooth not in FDI_TEETH:
+        raise AppError("errors.invalid_tooth", status_code=400, code="invalid_tooth")
+    return tooth
+
+
+def validate_odontogram_tooth(tooth: int) -> int:
+    """Odontogram accepts both permanent and deciduous (55..85) teeth."""
+    try:
+        tooth = int(tooth)
+    except (TypeError, ValueError):
+        raise AppError("errors.invalid_tooth", status_code=400, code="invalid_tooth") from None
+    if tooth not in FDI_PERMANENT and tooth not in FDI_DECIDUOUS:
         raise AppError("errors.invalid_tooth", status_code=400, code="invalid_tooth")
     return tooth
 
@@ -268,30 +286,94 @@ def serialize_treatment(t: PatientTreatment) -> dict:
 # --------------------------------------------------------------------------- #
 
 
-def tooth_states_map(db: OrmSession, patient_id: int) -> dict[int, dict]:
-    rows = db.execute(select(ToothState).where(ToothState.patient_id == patient_id)).scalars().all()
-    return {r.tooth: {"state": r.state, "updated_at": r.updated_at.isoformat()} for r in rows}
+def tooth_conditions(db: OrmSession, patient_id: int) -> list[dict]:
+    """Current odontogram: one entry per marked tooth/surface."""
+    rows = (
+        db.execute(
+            select(ToothState)
+            .where(ToothState.patient_id == patient_id)
+            .order_by(ToothState.tooth, ToothState.surface)
+        )
+        .scalars()
+        .all()
+    )
+    return [{"tooth": r.tooth, "condition": r.state, "surface": r.surface} for r in rows]
 
 
-def set_tooth_state(db: OrmSession, *, patient_id: int, tooth: int, state: str, actor_id: int | None) -> dict:
-    get_patient_or_404(db, patient_id)
-    tooth = validate_tooth(tooth)
-    if state not in TOOTH_STATES:
-        raise AppError("errors.invalid_tooth_state", status_code=400, code="invalid_state")
+def _upsert_tooth_row(
+    db: OrmSession, *, patient_id: int, tooth: int, surface: str, state: str, actor_id: int | None
+) -> None:
     row = db.execute(
         select(ToothState).where(
-            ToothState.patient_id == patient_id, ToothState.tooth == tooth
+            ToothState.patient_id == patient_id,
+            ToothState.tooth == tooth,
+            ToothState.surface == surface,
         )
     ).scalar_one_or_none()
     if row is None:
-        row = ToothState(patient_id=patient_id, tooth=tooth, state=state, updated_by=actor_id)
-        db.add(row)
+        db.add(
+            ToothState(
+                patient_id=patient_id,
+                tooth=tooth,
+                surface=surface,
+                state=state,
+                updated_by=actor_id,
+            )
+        )
     else:
         row.state = state
         row.updated_by = actor_id
         row.updated_at = now_tz()
+
+
+def set_tooth_condition(
+    db: OrmSession, *, patient_id: int, tooth: int, condition: str, surface: str, actor_id: int | None
+) -> dict:
+    """Apply a condition change. 'sain' clears the tooth; whole-tooth conditions
+    replace any surface marks on that tooth."""
+    get_patient_or_404(db, patient_id)
+    tooth = validate_odontogram_tooth(tooth)
+    condition = (condition or "").strip().lower()
+    surface = (surface or "").strip().lower()
+
+    if condition == "sain":
+        # 'sain' with a surface clears that single mark; without one it clears
+        # the whole tooth (whole-tooth row + all surface marks).
+        where = [ToothState.patient_id == patient_id, ToothState.tooth == tooth]
+        if surface:
+            if surface not in TOOTH_SURFACES:
+                raise AppError("errors.surface_required", status_code=400, code="surface_required")
+            where.append(ToothState.surface == surface)
+        db.execute(delete(ToothState).where(*where))
+        db.flush()
+        return {"tooth": tooth, "condition": "sain", "surface": surface}
+
+    if condition not in TOOTH_CONDITIONS:
+        raise AppError("errors.invalid_tooth_state", status_code=400, code="invalid_state")
+
+    if condition in SURFACE_CONDITIONS:
+        if surface not in TOOTH_SURFACES:
+            raise AppError("errors.surface_required", status_code=400, code="surface_required")
+        _upsert_tooth_row(
+            db, patient_id=patient_id, tooth=tooth, surface=surface, state=condition, actor_id=actor_id
+        )
+        db.flush()
+        return {"tooth": tooth, "condition": condition, "surface": surface}
+
+    if surface:
+        raise AppError("errors.surface_not_allowed", status_code=400, code="surface_not_allowed")
+    db.execute(
+        delete(ToothState).where(
+            ToothState.patient_id == patient_id,
+            ToothState.tooth == tooth,
+            ToothState.surface != "",
+        )
+    )
+    _upsert_tooth_row(
+        db, patient_id=patient_id, tooth=tooth, surface="", state=condition, actor_id=actor_id
+    )
     db.flush()
-    return {"tooth": tooth, "state": row.state}
+    return {"tooth": tooth, "condition": condition, "surface": ""}
 
 
 def treatments_by_tooth(db: OrmSession, patient_id: int) -> dict[int, list[dict]]:
