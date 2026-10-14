@@ -127,6 +127,9 @@ def test_low_stock_filter_and_valuation(owner_client, users):
     _item(c, "Article A", initial_quantity="5", min_quantity="10")   # low
     _item(c, "Article B", initial_quantity="40", min_quantity="10", unit_cost="250")  # 10000
     _item(c, "Article C", initial_quantity="3", min_quantity="3", unit_cost="100")    # low, 300
+    # Equipment/bureau items never trigger low-stock alerts (1 fauteuil is normal).
+    _item(c, "Fauteuil", initial_quantity="1", min_quantity="1", category="equipement")
+    _item(c, "Papier", initial_quantity="0", min_quantity="5", category="bureau")
 
     r = c.get("/api/stock", params={"low_stock": "true"})
     names = {i["name"] for i in r.json()["items"]}

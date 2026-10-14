@@ -59,6 +59,10 @@ def get_item_or_404(db: OrmSession, item_id: int) -> StockItem:
 
 
 def is_low(item: StockItem) -> bool:
+    """Below/at threshold. Alerts apply to consumables only: equipment and
+    office items are one-offs (1 fauteuil is not "out of stock")."""
+    if item.category != "consommable":
+        return False
     return item.stock_quantity <= item.min_quantity
 
 

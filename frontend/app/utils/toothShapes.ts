@@ -18,26 +18,36 @@ export interface ToothCondition {
 export interface Anatomy {
   crown: string
   roots: string[]
+  /** Thin inner detail strokes (root canals, crown contours) — drawn on top. */
+  detail: string[]
 }
 
 export const ANATOMY: Record<ToothType, Anatomy> = {
   incisive: {
     crown: "M15,64 Q15,60 19,60 L41,60 Q45,60 45,64 L43,97 Q43,104 36,104 L24,104 Q17,104 17,97 Z",
     roots: ["M20,60 C20,48 23,38 24,26 Q25,8 30,8 Q35,8 36,26 C37,38 40,48 40,60 Z"],
+    detail: ["M30,58 C29.5,46 29.5,30 30,16", "M20,93 Q30,98 40,93"],
   },
   canine: {
     crown: "M16,62 L25,97 Q27,104 30,104 Q33,104 35,97 L44,62 Z",
     roots: ["M22,62 C22,50 24,42 25,30 Q26,8 30,8 Q34,8 35,30 C36,42 38,50 38,62 Z"],
+    detail: ["M30,58 C29.5,46 30,32 30,18", "M21,74 Q30,80 39,74"],
   },
   premolaire: {
     crown: "M14,65 Q14,61 18,61 L42,61 Q46,61 46,65 L46,94 Q46,102 38,102 L34,98 Q30,103 26,98 L22,102 Q14,102 14,94 Z",
     roots: ["M21,61 C20,50 22,42 24,32 Q26,14 30,14 Q34,14 36,32 C38,42 40,50 39,61 Z"],
+    detail: ["M30,58 C29.5,48 30,38 30,22", "M17,79 Q23,86 30,80 Q37,86 43,79"],
   },
   molaire: {
     crown: "M10,66 Q10,61 15,61 L45,61 Q50,61 50,66 L50,92 Q50,101 42,101 L36,97 Q30,102 24,97 L18,101 Q10,101 10,92 Z",
     roots: [
       "M15,61 C14,48 16,40 18,30 Q19,19 22,19 Q25,19 26,30 C27,40 29,48 28,61 Z",
       "M32,61 C31,48 33,40 34,30 Q35,19 38,19 Q41,19 42,30 C44,40 46,48 45,61 Z",
+    ],
+    detail: [
+      "M22,58 C21.5,48 21.5,38 22,26",
+      "M38,58 C38.5,48 38.5,38 38,26",
+      "M14,78 Q22,86 30,80 Q38,86 46,78",
     ],
   },
 }
@@ -47,6 +57,15 @@ export const OCCLUSAL: Record<ToothType, string> = {
   canine: "M10,20 a10,17 0 1 0 20,0 a10,17 0 1 0 -20,0 z",
   premolaire: "M11,5 h18 a6,6 0 0 1 6,6 v18 a6,6 0 0 1 -6,6 h-18 a6,6 0 0 1 -6,-6 v-18 a6,6 0 0 1 6,-6 z",
   molaire: "M9,4 h22 a7,7 0 0 1 7,7 v18 a7,7 0 0 1 -7,7 h-22 a7,7 0 0 1 -7,-7 v-18 a7,7 0 0 1 7,-7 z",
+}
+
+/** Inner enamel-ridge outlines for the occlusal views (DentalPin-style),
+ *  drawn inside each OCCLUSAL shape. */
+export const OCCLUSAL_DETAIL: Record<ToothType, string> = {
+  incisive: "M16,8 h8 a4,4 0 0 1 4,4 v16 a4,4 0 0 1 -4,4 h-8 a4,4 0 0 1 -4,-4 v-16 a4,4 0 0 1 4,-4 z",
+  canine: "M14.5,20 a5.5,9.5 0 1 0 11,0 a5.5,9.5 0 1 0 -11,0 z",
+  premolaire: "M14,10 h12 a3.5,3.5 0 0 1 3.5,3.5 v13 a3.5,3.5 0 0 1 -3.5,3.5 h-12 a3.5,3.5 0 0 1 -3.5,-3.5 v-13 a3.5,3.5 0 0 1 3.5,-3.5 z",
+  molaire: "M15,10 h10 a4,4 0 0 1 4,4 v12 a4,4 0 0 1 -4,4 h-10 a4,4 0 0 1 -4,-4 v-12 a4,4 0 0 1 4,-4 z",
 }
 
 /** Wedge paths from the occlusal centre — default orientation:

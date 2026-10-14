@@ -18,6 +18,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -91,6 +92,12 @@ class ClinicSettings(Base):
     backup_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
     backup_keep_daily: Mapped[int] = mapped_column(Integer, nullable=False, default=14)
     backup_keep_manual: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    # DSP / CNAS defaults (CNAS AS 2 sheet). No official public dental act-code
+    # nomenclature exists — these stay owner-configurable.
+    dsp_default_caisse: Mapped[str] = mapped_column(String(10), nullable=False, default="CNAS")
+    dsp_default_code: Mapped[str] = mapped_column(String(20), nullable=False, default="")
+    dsp_default_coefficient: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False, default=0)
+    dsp_default_fee: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
 
 
@@ -122,6 +129,8 @@ class Patient(Base):
     prenom: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
     telephone: Mapped[str] = mapped_column(String(30), nullable=False)
     telephone2: Mapped[str] = mapped_column(String(30), nullable=False, default="")
+    # Optional but needed for age display and pedodontics (deciduous dentition).
+    date_naissance: Mapped[date | None] = mapped_column(Date, nullable=True)
     adresse: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     wilaya: Mapped[str] = mapped_column(String(80), nullable=False, default="")
     notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -338,6 +347,33 @@ class ToothState(Base):
             "surface IN ('','occlusale','mesiale','distale','vestibulaire','linguale')",
             name="ck_tooth_state_surface",
         ),
+    )
+
+
+class ToothStateHistory(Base):
+    """Append-only audit of odontogram changes (mirrors DentalPin's
+    odontogram_history). One row per applied change; rows are never updated
+    or deleted. `action` is `set` (condition applied) or `clear` (marked sain)."""
+
+    __tablename__ = "tooth_state_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    tooth: Mapped[int] = mapped_column(Integer, nullable=False)
+    surface: Mapped[str] = mapped_column(String(12), nullable=False, default="")
+    # Resulting condition of the tooth/surface after the change ('sain' for clear).
+    condition: Mapped[str] = mapped_column(String(20), nullable=False)
+    action: Mapped[str] = mapped_column(String(10), nullable=False, default="set")
+    changed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now, index=True
+    )
+
+    __table_args__ = (
+        Index("ix_tooth_history_patient_tooth", "patient_id", "tooth"),
+        CheckConstraint("action IN ('set','clear')", name="ck_tooth_history_action"),
     )
 
 
@@ -597,4 +633,194 @@ class TreatmentConsumable(Base):
     __table_args__ = (
         UniqueConstraint("catalog_item_id", "stock_item_id", name="uq_treatment_consumable"),
         CheckConstraint("quantity > 0", name="ck_treatment_consumable_quantity"),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# DSP & CNAS register (CNAS AS 2 — Feuille de soins dentaires)
+# --------------------------------------------------------------------------- #
+
+
+class DspRegistry(Base):
+    """One entry = one AS 2 form for one patient + one caisse (CNAS or CASNOS).
+
+    `first_act_date` anchors the 3-month submission deadline (official AS 2
+    rule: dossier presented within three months after the first act).
+    Identifiers are free text so no nomenclature is hard-coded.
+    """
+
+    __tablename__ = "dsp_registry"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    caisse: Mapped[str] = mapped_column(String(10), nullable=False, index=True)  # CNAS | CASNOS
+    insured_nin: Mapped[str] = mapped_column(String(18), nullable=False, default="")
+    affiliation_no: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+    # assure / conjoint / enfant / autre
+    beneficiary_relation: Mapped[str] = mapped_column(String(20), nullable=False, default="assure")
+    first_act_date: Mapped[date] = mapped_column(Date, nullable=False)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+    __table_args__ = (
+        CheckConstraint("caisse IN ('CNAS','CASNOS')", name="ck_dsp_caisse"),
+        CheckConstraint(
+            "beneficiary_relation IN ('assure','conjoint','enfant','autre')",
+            name="ck_dsp_beneficiary",
+        ),
+    )
+
+
+class DspAct(Base):
+    """One treated act on a DSP sheet: date, tooth (FDI), free-text label,
+    optional act code / coefficient / fee — all configurable, no hard-coded
+    nomenclature (CNAS publishes no public dental code list)."""
+
+    __tablename__ = "dsp_acts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    dsp_id: Mapped[int] = mapped_column(
+        ForeignKey("dsp_registry.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    act_date: Mapped[date] = mapped_column(Date, nullable=False)
+    tooth: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    act_label: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    act_code: Mapped[str] = mapped_column(String(20), nullable=False, default="")
+    coefficient: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False, default=0)
+    fee: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+    __table_args__ = (
+        CheckConstraint(
+            "tooth IS NULL OR ((tooth BETWEEN 11 AND 48) OR (tooth BETWEEN 51 AND 85 AND tooth % 10 BETWEEN 1 AND 5))",
+            name="ck_dsp_act_tooth",
+        ),
+        CheckConstraint("fee >= 0", name="ck_dsp_act_fee"),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Devis / plan de traitement
+# --------------------------------------------------------------------------- #
+
+
+class Devis(Base):
+    """Treatment plan quote. Status machine mirrors DentalPin:
+    draft -> sent -> accepted (terminal good) or rejected/expired/cancelled.
+    Line totals are computed, never stored; accepted devis are reported into
+    treatments manually (no auto pipeline in this product)."""
+
+    __tablename__ = "devis"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft", index=True)
+    issue_date: Mapped[date] = mapped_column(Date, nullable=False)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+    items: Mapped[list["DevisItem"]] = relationship(
+        back_populates="devis", cascade="all, delete-orphan", order_by="DevisItem.id"
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft','sent','accepted','rejected','expired','cancelled')",
+            name="ck_devis_status",
+        ),
+    )
+
+
+class DevisItem(Base):
+    """One line of a devis. Label snapshots the catalog name at save time.
+    Quantities and per-line FDI tooth are optional-ish (qty >= 1)."""
+
+    __tablename__ = "devis_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    devis_id: Mapped[int] = mapped_column(
+        ForeignKey("devis.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    catalog_item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("treatment_catalog.id", ondelete="SET NULL")
+    )
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    tooth: Mapped[int | None] = mapped_column(Integer, nullable=True)  # FDI 11..48
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+    devis: Mapped[Devis] = relationship(back_populates="items")
+
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_devis_item_quantity"),
+        CheckConstraint("unit_price >= 0", name="ck_devis_item_price"),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Stérilisation (traceability of autoclave cycles)
+# --------------------------------------------------------------------------- #
+
+
+class SterilizationCycle(Base):
+    """One autoclave run. Human cycle numbers follow S-YYYYMMDD-### per day.
+    Status: in_progress -> done | failed. A cycle with any failed instrument
+    row reports failed unless the operator explicitly marked it done."""
+
+    __tablename__ = "sterilization_cycles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    cycle_no: Mapped[str] = mapped_column(String(30), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="in_progress", index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now, index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    operator_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    autoclave_name: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    program: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    items: Mapped[list["SterilizationCycleItem"]] = relationship(
+        back_populates="cycle", cascade="all, delete-orphan", order_by="SterilizationCycleItem.id"
+    )
+
+    __table_args__ = (
+        CheckConstraint("status IN ('in_progress','done','failed')", name="ck_sterilization_status"),
+    )
+
+
+class SterilizationCycleItem(Base):
+    """Instrument batch loaded in a cycle. `instrument_status` records the
+    post-cycle check (sterile / failed indicator strip)."""
+
+    __tablename__ = "sterilization_cycle_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    cycle_id: Mapped[int] = mapped_column(
+        ForeignKey("sterilization_cycles.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    item_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    stock_item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("stock_items.id", ondelete="SET NULL")
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # sterile / failed
+    instrument_status: Mapped[str] = mapped_column(String(20), nullable=False, default="sterile")
+
+    cycle: Mapped[SterilizationCycle] = relationship(back_populates="items")
+
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_sterilization_item_quantity"),
+        CheckConstraint("instrument_status IN ('sterile','failed')", name="ck_sterilization_item_status"),
     )

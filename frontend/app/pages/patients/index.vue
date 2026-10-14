@@ -52,7 +52,7 @@ await load()
 
 // ---- New patient dialog ----------------------------------------------------
 const showNew = ref(false)
-const form = ref({ nom: "", prenom: "", telephone: "" })
+const form = ref({ nom: "", prenom: "", telephone: "", date_naissance: "" })
 const saving = ref(false)
 const fieldError = ref("")
 
@@ -62,7 +62,7 @@ async function createPatient() {
   try {
     const created = await api.post<{ patient: { id: number } }>("/patients", form.value)
     showNew.value = false
-    form.value = { nom: "", prenom: "", telephone: "" }
+    form.value = { nom: "", prenom: "", telephone: "", date_naissance: "" }
     toast.success("patients.created")
     await navigateTo(`/patients/${created.patient.id}`)
   }
@@ -154,9 +154,13 @@ const totalPages = computed(() =>
           <label for="np-prenom">{{ t("patients.prenom") }}</label>
           <input id="np-prenom" v-model="form.prenom" class="input">
         </div>
-        <div class="field" style="margin-bottom:16px;">
+        <div class="field" style="margin-bottom:12px;">
           <label for="np-tel">{{ t("patients.telephone") }}</label>
           <input id="np-tel" v-model="form.telephone" class="input" inputmode="tel">
+        </div>
+        <div class="field" style="margin-bottom:16px;">
+          <label for="np-bday">{{ t("patients.date_naissance") }}</label>
+          <input id="np-bday" v-model="form.date_naissance" class="input" type="date">
         </div>
         <div v-if="fieldError" class="alert alert-error">{{ t(fieldError) }}</div>
         <div class="dialog-actions">

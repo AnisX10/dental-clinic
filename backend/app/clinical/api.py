@@ -302,6 +302,27 @@ class ToothConditionIn(BaseModel):
     surface: str = ""
 
 
+@router.get("/patients/{patient_id}/odontogram/history")
+def get_tooth_history(
+    patient_id: int,
+    user: User = Depends(get_current_user),
+    db: OrmSession = Depends(get_db),
+):
+    rows = service.tooth_history(db, patient_id)
+    if not rows:
+        service.get_patient_or_404(db, patient_id)  # 404 on unknown patient
+    actor_ids = [r.changed_by for r in rows if r.changed_by]
+    actors = (
+        db.execute(select(User).where(User.id.in_(actor_ids))).scalars().all() if actor_ids else []
+    )
+    names = {u.id: u.full_name or u.username for u in actors}
+    return {
+        "history": [
+            service.serialize_tooth_history(h, actor_name=names.get(h.changed_by)) for h in rows
+        ]
+    }
+
+
 @router.put("/patients/{patient_id}/odontogram")
 def set_tooth_condition(
     patient_id: int,

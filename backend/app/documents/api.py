@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session as OrmSession
 from app.core.audit import log_action
 from app.core.auth import get_client_ip, get_current_user
 from app.core.db import get_db
+from app.core.errors import AppError
 from app.core.models import User
 from app.documents import service
 from app.patients.service import get_patient_or_404
@@ -18,6 +19,11 @@ class DocumentCreate(BaseModel):
     doc_type: str
     title: str = ""
     content: dict = {}
+
+
+class DocumentUpdate(BaseModel):
+    title: str | None = None
+    content: dict | None = None
 
 
 @router.post("", status_code=201)
@@ -72,3 +78,27 @@ def get_document(
         "document": service.serialize_document(doc, include_content=True),
         "clinic": service.clinic_template_data(settings),
     }
+
+
+@router.put("/{document_id}")
+def update_document(
+    document_id: int,
+    payload: DocumentUpdate,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: OrmSession = Depends(get_db),
+):
+    if payload.title is None and payload.content is None:
+        raise AppError("errors.invalid_document_content", status_code=400, code="nothing_to_update")
+    doc = service.get_document_or_404(db, document_id)
+    doc = service.update_document(db, doc, title=payload.title, content=payload.content)
+    log_action(
+        db,
+        actor_id=user.id,
+        action="document_update",
+        entity="document",
+        entity_id=doc.id,
+        detail={"patient_id": doc.patient_id, "doc_type": doc.doc_type},
+        ip=get_client_ip(request),
+    )
+    return {"document": service.serialize_document(doc, include_content=True)}

@@ -1,7 +1,13 @@
 """Appointment workflow tests."""
 import datetime as dt
 
+from app.core.dates import today as clinic_today
 from tests.conftest import BACKEND_DIR  # noqa: F401
+
+
+def _today() -> str:
+    """Clinic timezone date (Africa/Algiers); the API computes 'today' with it."""
+    return clinic_today().isoformat()
 
 
 def _patient(client):
@@ -20,7 +26,7 @@ def _create_appt(client, patient_id, day, time=None, time_note=""):
 
 def test_create_appointment_optional_time(owner_client, users):
     patient = _patient(owner_client)
-    day = dt.date.today().isoformat()
+    day = _today()
     # Without time
     resp = _create_appt(owner_client, patient["id"], day)
     assert resp.status_code == 201
@@ -44,7 +50,7 @@ def test_appointment_requires_patient_and_date(owner_client, users):
 
 def test_status_transitions(owner_client, users):
     patient = _patient(owner_client)
-    day = dt.date.today().isoformat()
+    day = _today()
     appt = _create_appt(owner_client, patient["id"], day).json()["appointment"]
     appt_id = appt["id"]
 
@@ -58,7 +64,7 @@ def test_status_transitions(owner_client, users):
 
 def test_invalid_transition_rejected(owner_client, users):
     patient = _patient(owner_client)
-    day = dt.date.today().isoformat()
+    day = _today()
     appt = _create_appt(owner_client, patient["id"], day).json()["appointment"]
     # a_venir -> termine is allowed, but termine -> arrive is not.
     owner_client.post(f"/api/agenda/appointments/{appt['id']}/status", json={"status": "termine"})
@@ -69,7 +75,7 @@ def test_invalid_transition_rejected(owner_client, users):
 
 def test_absent_is_event_not_status(owner_client, users):
     patient = _patient(owner_client)
-    day = dt.date.today().isoformat()
+    day = _today()
     appt = _create_appt(owner_client, patient["id"], day).json()["appointment"]
     resp = owner_client.post(f"/api/agenda/appointments/{appt['id']}/absent")
     body = resp.json()["appointment"]
@@ -79,7 +85,7 @@ def test_absent_is_event_not_status(owner_client, users):
 
 def test_cancellation_and_history(owner_client, users):
     patient = _patient(owner_client)
-    day = dt.date.today().isoformat()
+    day = _today()
     appt = _create_appt(owner_client, patient["id"], day).json()["appointment"]
     owner_client.post(f"/api/agenda/appointments/{appt['id']}/status", json={"status": "arrive"})
     resp = owner_client.post(
@@ -97,9 +103,9 @@ def test_cancellation_and_history(owner_client, users):
 
 def test_update_appointment_date(owner_client, users):
     patient = _patient(owner_client)
-    day = dt.date.today().isoformat()
+    day = _today()
     appt = _create_appt(owner_client, patient["id"], day).json()["appointment"]
-    new_day = (dt.date.today() + dt.timedelta(days=2)).isoformat()
+    new_day = (clinic_today() + dt.timedelta(days=2)).isoformat()
     resp = owner_client.put(
         f"/api/agenda/appointments/{appt['id']}", json={"date": new_day, "time": "09:00"}
     )
@@ -111,8 +117,8 @@ def test_update_appointment_date(owner_client, users):
 
 def test_today_lists_only_today(owner_client, users):
     patient = _patient(owner_client)
-    today = dt.date.today().isoformat()
-    tomorrow = (dt.date.today() + dt.timedelta(days=1)).isoformat()
+    today = _today()
+    tomorrow = (clinic_today() + dt.timedelta(days=1)).isoformat()
     _create_appt(owner_client, patient["id"], today)
     _create_appt(owner_client, patient["id"], tomorrow)
     rows = owner_client.get("/api/agenda/today").json()["appointments"]

@@ -39,6 +39,11 @@ class Settings(BaseSettings):
 
     max_attachment_mb: int = 15
 
+    # Extra CORS origins for development only. Production serves the SPA from
+    # the same origin, so no CORS is needed; keep the attack surface at zero
+    # unless explicitly widened for a dev setup via CLINIC_CORS_EXTRA_ORIGINS.
+    cors_extra_origins: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -82,7 +82,9 @@ def client(db_url, monkeypatch):
         "audit_log", "appointment_events", "appointments", "attachments",
         "backup_records", "clinical_notes", "documents", "medical_profiles",
         "patient_treatments", "payments", "sessions", "tooth_states",
-        "treatment_catalog", "clinic_settings", "patients", "users",
+        "tooth_state_history", "treatment_catalog", "clinic_settings", "patients",
+        "users", "dsp_acts", "dsp_registry", "devis_items", "devis",
+        "sterilization_cycle_items", "sterilization_cycles",
         "lab_invoice_payments", "lab_invoices", "lab_orders", "labs",
         "stock_movements", "stock_items", "treatment_consumables",
     ]

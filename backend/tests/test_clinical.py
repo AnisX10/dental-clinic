@@ -169,3 +169,30 @@ def test_odontogram_surface_marks(owner_client, users):
     # Deciduous teeth are supported
     assert owner_client.put(path, json={"tooth": 55, "condition": "carie", "surface": "occlusale"}).status_code == 200
     assert conds() == {(55, "occlusale"): "carie"}
+
+
+def test_odontogram_history(owner_client, users):
+    patient = _patient(owner_client)
+    path = f"/api/clinical/patients/{patient['id']}/odontogram"
+    hist_path = f"/api/clinical/patients/{patient['id']}/odontogram/history"
+
+    # Unknown patient -> 404
+    r = owner_client.get("/api/clinical/patients/999999/odontogram/history")
+    assert r.status_code == 404
+
+    # Start clean, then make a sequence of changes
+    owner_client.put(path, json={"tooth": 36, "condition": "sain"})
+    owner_client.put(path, json={"tooth": 36, "condition": "carie", "surface": "occlusale"})
+    owner_client.put(path, json={"tooth": 36, "condition": "obturation", "surface": "occlusale"})
+    owner_client.put(path, json={"tooth": 24, "condition": "absent"})
+    owner_client.put(path, json={"tooth": 24, "condition": "sain"})
+
+    rows = owner_client.get(hist_path).json()["history"]
+    # Newest first: the last change (sain on 24) logs as clear; the plain set
+    # events are all present. The leading sain on the unmarked 36 records nothing.
+    assert len([h for h in rows if h["action"] == "clear"]) == 1
+    assert rows[0]["condition"] == "sain" and rows[0]["tooth"] == 24
+    assert rows[1]["condition"] == "absent" and rows[1]["tooth"] == 24
+    assert rows[2]["condition"] == "obturation" and rows[2]["surface"] == "occlusale"
+    assert rows[3]["condition"] == "carie"
+    assert all(h.get("changed_by") for h in rows)

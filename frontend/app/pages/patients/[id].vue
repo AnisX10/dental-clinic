@@ -24,7 +24,8 @@ const dentition = ref<"permanente" | "temporaire">("permanente")
 
 interface Patient {
   id: number, code: string, nom: string, prenom: string, telephone: string,
-  telephone2: string, adresse: string, wilaya: string, notes: string,
+  telephone2: string, date_naissance: string, age_years: number | null,
+  adresse: string, wilaya: string, notes: string,
   created_at: string,
   medical: Record<string, boolean | string> | null,
 }
@@ -87,6 +88,7 @@ await loadPatient()
 
 async function loadTab(name: string) {
   try {
+    errorMsg.value = ""
     if (name === "resume") {
       const [n, tr, lg, lo] = await Promise.all([
         api.get<{ notes: Note[] }>(`/clinical/patients/${patientId}/notes`),
@@ -101,7 +103,7 @@ async function loadTab(name: string) {
       tabLoaded.value.resume = true
     }
     if (name === "odontogramme" && !tabLoaded.value.odontogramme) {
-      await loadOdontogram()
+      await Promise.all([loadOdontogram(), loadToothHistory()])
       tabLoaded.value.odontogramme = true
     }
     if (name === "traitements" && !tabLoaded.value.traitements) {
@@ -139,11 +141,35 @@ async function loadOdontogram() {
   odontoTreatments.value = map
 }
 
+interface ToothHistoryRow {
+  id: number
+  tooth: number
+  surface: string
+  condition: string
+  action: string
+  changed_at: string
+  changed_by: string | null
+}
+const toothHistory = ref<ToothHistoryRow[]>([])
+
+async function loadToothHistory() {
+  try {
+    const r = await api.get<{ history: ToothHistoryRow[] }>(
+      `/clinical/patients/${patientId}/odontogram/history`,
+    )
+    toothHistory.value = r.history
+  }
+  catch {
+    toothHistory.value = []
+  }
+}
+
 async function applyCondition(payload: { tooth: number, condition: string, surface: string }) {
   odontoBusy.value = true
   try {
     await api.put(`/clinical/patients/${patientId}/odontogram`, payload)
     await loadOdontogram()
+    await loadToothHistory()
     flash("odontogram.saved")
   }
   catch (e: any) {
@@ -214,6 +240,11 @@ async function openTreatment() {
 const selectedCatalogItem = computed(() =>
   catalog.value.find(i => String(i.id) === treatmentForm.value.catalog_item_id) ?? null,
 )
+
+/** Picking a treatment pre-fills the price with the catalog default (still editable). */
+watch(selectedCatalogItem, (item) => {
+  if (item) treatmentForm.value.price = item.default_price
+})
 
 async function saveTreatment() {
   treatmentSaving.value = true
@@ -315,7 +346,7 @@ async function saveMedical() {
 
 // ---- Edit patient ----------------------------------------------------------
 const showEdit = ref(false)
-const editForm = ref({ nom: "", prenom: "", telephone: "", telephone2: "", adresse: "", wilaya: "", notes: "" })
+const editForm = ref({ nom: "", prenom: "", telephone: "", telephone2: "", date_naissance: "", adresse: "", wilaya: "", notes: "" })
 const editSaving = ref(false)
 const editError = ref("")
 
@@ -323,6 +354,7 @@ function openEdit() {
   const p = patient.value!
   editForm.value = {
     nom: p.nom, prenom: p.prenom, telephone: p.telephone, telephone2: p.telephone2,
+    date_naissance: p.date_naissance ?? "",
     adresse: p.adresse, wilaya: p.wilaya, notes: p.notes,
   }
   editError.value = ""
@@ -380,6 +412,7 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
           <p class="page-subtitle" style="font-variant-numeric:tabular-nums;">
             {{ patient.telephone }}
             <span v-if="patient.telephone2"> · {{ patient.telephone2 }}</span>
+            <span v-if="patient.age_years !== null"> · {{ patient.age_years }} {{ t("patients.ans") }}</span>
             <span v-if="patient.wilaya"> · {{ patient.wilaya }}</span>
           </p>
         </div>
@@ -603,6 +636,26 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
             </div>
           </div>
         </div>
+
+        <div class="card" style="margin-top:16px;padding:0;">
+          <h2 class="section-title" style="padding:16px 16px 0;">{{ t("odontogram.historique") }}</h2>
+          <div v-if="!toothHistory.length" class="empty-state">{{ t("odontogram.historique_vide") }}</div>
+          <table v-else class="table">
+            <tbody>
+              <tr v-for="h in toothHistory.slice(0, 30)" :key="h.id">
+                <td style="width:70px;font-weight:600;">{{ h.tooth }}</td>
+                <td>{{ t(h.condition === "sain" ? "odontogram.sain" : `odontogram.cond_${h.condition}`) }}<span v-if="h.surface" class="small muted"> · {{ h.surface }}</span></td>
+                <td style="width:90px;">
+                  <span :class="h.action === 'clear' ? 'badge badge-cancelled' : 'badge badge-en_cours'">
+                    {{ t(h.action === "clear" ? "odontogram.hist_clear" : "odontogram.hist_set") }}
+                  </span>
+                </td>
+                <td class="small muted">{{ dates.fmtDateTime(h.changed_at) }}</td>
+                <td class="small muted">{{ h.changed_by ?? "" }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </template>
 
       <!-- Paiements -->
@@ -779,6 +832,10 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
           <div class="field" style="margin-bottom:12px;flex:1;">
             <label for="ed-tel2">{{ t("patients.telephone2") }}</label>
             <input id="ed-tel2" v-model="editForm.telephone2" class="input" inputmode="tel">
+          </div>
+          <div class="field" style="margin-bottom:12px;flex:1;">
+            <label for="ed-bday">{{ t("patients.date_naissance") }}</label>
+            <input id="ed-bday" v-model="editForm.date_naissance" class="input" type="date">
           </div>
         </div>
         <div style="display:flex;gap:12px;">

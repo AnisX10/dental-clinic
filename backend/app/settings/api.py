@@ -23,6 +23,10 @@ class SettingsUpdate(BaseModel):
     backup_hour: int | None = None
     backup_keep_daily: int | None = None
     backup_keep_manual: int | None = None
+    dsp_default_caisse: str | None = None
+    dsp_default_code: str | None = None
+    dsp_default_coefficient: float | None = None
+    dsp_default_fee: float | None = None
 
 
 @router.get("")
@@ -32,6 +36,10 @@ def get_settings_view(user: User = Depends(get_current_user), db: OrmSession = D
     data["backup_hour"] = settings.backup_hour
     data["backup_keep_daily"] = settings.backup_keep_daily
     data["backup_keep_manual"] = settings.backup_keep_manual
+    data["dsp_default_caisse"] = settings.dsp_default_caisse
+    data["dsp_default_code"] = settings.dsp_default_code
+    data["dsp_default_coefficient"] = str(settings.dsp_default_coefficient)
+    data["dsp_default_fee"] = str(settings.dsp_default_fee)
     return {"settings": data}
 
 
@@ -78,6 +86,33 @@ def update_settings(
                 setattr(settings, field, num)
                 changes.append(field)
 
+    if payload.dsp_default_caisse is not None:
+        from app.dsp.service import CAISSES
+
+        caisse = payload.dsp_default_caisse.strip()
+        if caisse not in CAISSES:
+            from app.core.errors import AppError
+
+            raise AppError("errors.invalid_caisse", status_code=400, code="invalid_caisse")
+        if caisse != settings.dsp_default_caisse:
+            settings.dsp_default_caisse = caisse
+            changes.append("dsp_default_caisse")
+    if payload.dsp_default_code is not None:
+        code = payload.dsp_default_code.strip()[:20]
+        if code != settings.dsp_default_code:
+            settings.dsp_default_code = code
+            changes.append("dsp_default_code")
+    if payload.dsp_default_coefficient is not None:
+        coeff = max(0, int(payload.dsp_default_coefficient))
+        if coeff != settings.dsp_default_coefficient:
+            settings.dsp_default_coefficient = coeff
+            changes.append("dsp_default_coefficient")
+    if payload.dsp_default_fee is not None:
+        fee = max(0, int(payload.dsp_default_fee))
+        if fee != settings.dsp_default_fee:
+            settings.dsp_default_fee = fee
+            changes.append("dsp_default_fee")
+
     if changes:
 
         from app.core.dates import now_tz
@@ -93,6 +128,13 @@ def update_settings(
             detail={"fields": changes},
             ip=get_client_ip(request),
         )
-    return {"settings": (lambda s: {**clinic_template_data(s), "backup_hour": s.backup_hour,
-                                     "backup_keep_daily": s.backup_keep_daily,
-                                     "backup_keep_manual": s.backup_keep_manual})(settings)}
+    return {"settings": (lambda s: {
+        **clinic_template_data(s),
+        "backup_hour": s.backup_hour,
+        "backup_keep_daily": s.backup_keep_daily,
+        "backup_keep_manual": s.backup_keep_manual,
+        "dsp_default_caisse": s.dsp_default_caisse,
+        "dsp_default_code": s.dsp_default_code,
+        "dsp_default_coefficient": str(s.dsp_default_coefficient),
+        "dsp_default_fee": str(s.dsp_default_fee),
+    })(settings)}

@@ -7,14 +7,19 @@
   --color-text: #17212B;
   --color-text-muted: #66717D;
   --color-border: #E2E7EC;
-  --color-primary: #245B73;
-  --color-primary-dark: #19485C;
-  --color-accent: #3A8C87;
+  --color-primary: #0040DC;
+  --color-primary-dark: #0033B0;
+  --color-accent: #0B64D8;
   --color-success: #2D7A5A;
   --color-warning: #9A6A18;
   --color-danger: #B34A4A;
 
-  --font-sans: Inter, "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  /* HKN brand fonts (see branding/fonts/README.md): commercial, loaded from
+     local files only when licensed .woff2 files are dropped into
+     frontend/app/assets/fonts/ — the browser silently falls back to Inter /
+     Noto Sans Arabic until then (offline-safe either way). */
+  --font-sans: "PP Neue Montreal", Inter, "Janah LT", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  --font-arabic: "Janah LT", "Noto Sans Arabic", Tahoma, Arial, sans-serif;
 
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -33,6 +38,67 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* --- HKN brand font faces (self-hosted, licensed files only) -------------- */
+/* Latin — PP Neue Montreal (Pangram Pangram), App license required. */
+@font-face {
+  font-family: "PP Neue Montreal";
+  src: url("/fonts/NeueMontreal-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "PP Neue Montreal";
+  src: url("/fonts/NeueMontreal-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "PP Neue Montreal";
+  src: url("/fonts/NeueMontreal-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "PP Neue Montreal";
+  src: url("/fonts/NeueMontreal-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Arabic — Janah LT (Linotype/Monotype), embedding license required. */
+@font-face {
+  font-family: "Janah LT";
+  src: url("/fonts/JanahLT-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Janah LT";
+  src: url("/fonts/JanahLT-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Janah LT";
+  src: url("/fonts/JanahLT-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Janah LT";
+  src: url("/fonts/JanahLT-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -46,6 +112,10 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+[lang="ar"] body, html[dir="rtl"] body {
+  font-family: var(--font-arabic);
 }
 
 #app { min-height: 100vh; }
@@ -388,27 +458,36 @@ a { color: inherit; text-decoration: none; }
 .seg-btn { border: 0; background: transparent; padding: 6px 12px; font: inherit; font-size: 13px; color: var(--color-text-muted); cursor: pointer; }
 .seg-btn.active { background: var(--color-primary); color: #fff; }
 .odonto { display: inline-block; direction: ltr; padding: 4px 8px 12px; }
-.odonto-arch { margin-bottom: 6px; }
-.odonto-arch-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--color-text-muted); margin: 4px 0 6px; }
+.odonto-arch-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--color-text-muted); margin: 4px 0 6px; text-align: center; }
+.odonto-rows { position: relative; }
+.odonto-midline { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--color-border); pointer-events: none; }
 .odonto-row { position: relative; display: flex; gap: 4px; }
+.odonto-row-anat { margin-bottom: 4px; }
+.odonto-row-occl + .odonto-row-occl { margin-top: 2px; }
 .odonto-bars { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
 .odonto-cell {
   width: 58px; padding: 0; border: 1px solid transparent; border-radius: 10px;
   background: transparent; display: flex; flex-direction: column; align-items: center;
   gap: 3px; cursor: pointer; font: inherit;
 }
+.odonto-cell.half2 { margin-left: 22px; }
 .odonto-cell:hover { background: color-mix(in srgb, var(--color-primary) 6%, transparent); }
 .odonto-cell.sel { outline: 2px solid var(--color-primary); outline-offset: 1px; background: color-mix(in srgb, var(--color-primary) 7%, transparent); }
 .tooth-anat { width: 50px; height: 90px; }
 .tooth-anat.flip { transform: scaleY(-1); }
 .tooth-fill { fill: #fff; stroke: #8A97A3; stroke-width: 1.6; stroke-linejoin: round; }
+.tooth-detail { fill: none; stroke: #C2CBD4; stroke-width: 1.1; stroke-linecap: round; }
 .odonto-cell.todo .tooth-fill { stroke: var(--color-danger); stroke-dasharray: 5 3; }
-.odonto-cell.absent .tooth-fill { stroke-dasharray: 4 3; opacity: .35; }
-.odonto-cell.absent .occl-shape { stroke-dasharray: 4 3; opacity: .35; }
+.odonto-cell.todo .occl-shape { stroke: var(--color-danger); stroke-dasharray: 5 3; }
+.odonto-cell.absent .tooth-fill,
+.odonto-cell.absent .tooth-detail { stroke-dasharray: 4 3; opacity: .35; }
+.odonto-cell.absent .occl-shape,
+.odonto-cell.absent .occl-detail,
+.odonto-cell.absent .occl-fissure { stroke-dasharray: 4 3; opacity: .35; }
 .odonto-cell.absent .tooth-num { opacity: .4; text-decoration: line-through; }
-.tooth-hatch { opacity: .85; }
 .tooth-occl { width: 32px; height: 32px; }
 .occl-shape { fill: #fff; stroke: #8A97A3; stroke-width: 1.6; }
+.occl-detail { fill: none; stroke: #C2CBD4; stroke-width: 1.2; }
 .occl-fissure { stroke: #B7C0C9; stroke-width: 1.4; fill: none; stroke-linecap: round; }
 .wedge { opacity: .92; }
 .wedge-carie { fill: var(--color-danger); }

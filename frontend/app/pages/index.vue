@@ -39,6 +39,15 @@ interface LowItem {
   stock_quantity: string
   min_quantity: string
 }
+interface DormantPatient {
+  id: number
+  code: string
+  nom: string
+  prenom: string
+  telephone: string
+  days_since_visit: number
+  last_visit: string
+}
 
 const data = ref<TodayData | null>(null)
 const loading = ref(true)
@@ -50,7 +59,17 @@ const confirmCancel = ref<Appt | null>(null)
 const labActive = ref(0)
 const labOverdue = ref<LabOrderLite[]>([])
 const lowItems = ref<LowItem[]>([])
-const hasAlerts = computed(() => labActive.value > 0 || labOverdue.value.length > 0 || lowItems.value.length > 0)
+const dormant = ref<DormantPatient[]>([])
+const hasAlerts = computed(() => labActive.value > 0 || labOverdue.value.length > 0 || lowItems.value.length > 0 || dormant.value.length > 0 || backupOverdue.value)
+
+// Backup watchdog: warn when the last successful backup is ancient history.
+const backupStatus = ref<{ last_success: { at: string, kind: string } | null } | null>(null)
+const backupOverdue = computed(() => {
+  const last = backupStatus.value?.last_success
+  if (!last) return true
+  const at = new Date(last.at).getTime()
+  return Number.isNaN(at) || Date.now() - at > 26 * 3600 * 1000
+})
 
 function fmtQty(v: string): string {
   const n = Number.parseFloat(v)
@@ -79,13 +98,16 @@ async function load() {
   loading.value = true
   errorMsg.value = ""
   try {
-    const [today, labo, stock] = await Promise.all([
+    const [today, labo, stock, dormantResp, bk] = await Promise.all([
       api.get<TodayData>("/agenda/today"),
       api
         .get<{ orders: LabOrderLite[], counts: Record<string, number> }>("/lab-orders", { limit: "200" })
         .catch(() => null),
       api.get<{ items: LowItem[], low_count: number }>("/stock", { low_stock: "true" }).catch(() => null),
+      api.get<{ patients: DormantPatient[] }>("/patients/dormant", { days: "180", limit: "5" }).catch(() => null),
+      api.get<{ last_success: { at: string, kind: string } | null }>("/backup/status").catch(() => null),
     ])
+    backupStatus.value = bk
     data.value = today
     const c = labo?.counts
     labActive.value = c ? (c.envoye ?? 0) + (c.en_fabrication ?? 0) + (c.pret ?? 0) : 0
@@ -93,6 +115,7 @@ async function load() {
       o => ["envoye", "en_fabrication", "pret"].includes(o.status) && !!o.due_date && o.due_date < today.date,
     )
     lowItems.value = stock?.items ?? []
+    dormant.value = dormantResp?.patients ?? []
   }
   catch (e: any) {
     errorMsg.value = e?.messageKey ?? "errors.generic"
@@ -264,6 +287,25 @@ function statusClass(a: Appt): string {
               <span class="alert-qty">{{ fmtQty(it.stock_quantity) }} / {{ fmtQty(it.min_quantity) }} {{ it.unit }}</span>
             </NuxtLink>
           </template>
+          <NuxtLink v-if="backupOverdue" to="/parametres" class="alert-row">
+            <span class="alert-count danger">!</span>
+            <span>{{ t("today.backup_overdue") }}</span>
+          </NuxtLink>
+        </div>
+
+        <div v-if="dormant.length" class="card">
+          <h2 class="section-title" style="margin-bottom:8px;">{{ t("today.relance") }}</h2>
+          <NuxtLink
+            v-for="p in dormant"
+            :key="p.id"
+            :to="`/patients/${p.id}`"
+            class="alert-row sub"
+          >
+            <span>{{ p.nom }} {{ p.prenom }}</span>
+            <span class="alert-qty">
+              {{ p.days_since_visit }} {{ t("today.relance_jours") }} · {{ p.telephone }}
+            </span>
+          </NuxtLink>
         </div>
       </div>
     </div>

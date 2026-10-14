@@ -114,6 +114,96 @@ def test_backup_retention(owner_client, users):
         db.close()
 
 
+def test_backup_restore_round_trip(owner_client):
+    """A full backup restores cleanly: the restored DB returns its data.
+
+    Runs pg_restore into a fresh scratch database and asserts patients and
+    documents survive the trip. Never touches the live clinic DB.
+    """
+    import subprocess
+
+    # Arrange: patient + ordonnance + settings in the (test) clinic DB.
+    patient = _patient(owner_client)
+    doc = owner_client.post(
+        "/api/documents",
+        json={
+            "patient_id": patient["id"],
+            "doc_type": "ordonnance",
+            "title": "Ordonnance",
+            "content": {"lines": ["Amoxicilline 1g", "Ibuprofène 400mg"], "age": "31", "sexe": "F"},
+        },
+    ).json()["document"]
+    owner_client.put("/api/settings", json={"clinic_name": "Cabinet RoundTrip"})
+
+    # Backup via the API.
+    resp = owner_client.post("/api/backup/run")
+    assert resp.status_code == 201, resp.text
+    backup = resp.json()["backup"]
+    assert backup["status"] == "success"
+    dump_path = pathlib.Path(backup["file_path"])
+    assert dump_path.is_file() and dump_path.stat().st_size > 0
+
+    # Restore into a scratch database (fresh + empty) using the same mechanism
+    # the CLI uses, then verify every critical row made it through.
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.engine import make_url
+
+    from app.backup.service import _pg_dump_path
+    from app.core.db import get_engine
+
+    url = make_url(get_engine().url)
+    scratch_db = "clinic_restore_test"
+    admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        conn.execute(text(f'DROP DATABASE IF EXISTS "{scratch_db}"'))
+        conn.execute(text(f'CREATE DATABASE "{scratch_db}"'))
+    admin.dispose()
+
+    bin_dir = _pg_dump_path()
+    pg_restore = str(pathlib.Path(bin_dir) / "pg_restore") if bin_dir else "pg_restore"
+    env = {
+        "SYSTEMROOT": __import__("os").environ.get("SYSTEMROOT", ""),
+        "PGHOST": url.host or "127.0.0.1",
+        "PGPORT": str(url.port or 5432),
+        "PGUSER": url.username or "postgres",
+        "PGPASSWORD": url.password or "",
+    }
+
+    # Restore the schema, then the data (custom-format dump is schema-complete;
+    # a scratch DB is empty, so a plain restore brings the whole schema back).
+    proc = subprocess.run(
+        [pg_restore, "--dbname=" + str(url.set(database=scratch_db).render_as_string(hide_password=False)), str(dump_path)],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=600,
+    )
+    assert proc.returncode == 0, f"pg_restore failed: {proc.stderr[:500]}"
+
+    restored = create_engine(str(url.set(database=scratch_db)))
+    try:
+        with restored.connect() as conn:
+            rows = conn.execute(
+                text("SELECT nom, prenom FROM patients ORDER BY id")
+            ).fetchall()
+            assert rows == [(patient["nom"], patient["prenom"])]
+            doc_rows = conn.execute(
+                text("SELECT doc_type, title FROM documents ORDER BY id")
+            ).fetchall()
+            assert doc_rows == [("ordonnance", doc["title"])]
+            clinic_name = conn.execute(
+                text("SELECT clinic_name FROM clinic_settings LIMIT 1")
+            ).scalar()
+            assert clinic_name == "Cabinet RoundTrip"
+            such_rows = conn.execute(text("SELECT count(*) FROM users")).scalar()
+            assert such_rows and such_rows > 0
+    finally:
+        restored.dispose()
+        with admin.connect() as conn:
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{scratch_db}"'))
+        admin.dispose()
+
+
 def test_migration_reversibility(db_url):
     """The schema can be downgraded and upgraded cleanly."""
     import os

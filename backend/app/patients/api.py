@@ -36,6 +36,7 @@ class PatientCreate(BaseModel):
     adresse: str = ""
     wilaya: str = ""
     notes: str = ""
+    date_naissance: str = ""
 
 
 class PatientUpdate(BaseModel):
@@ -46,6 +47,7 @@ class PatientUpdate(BaseModel):
     adresse: str = ""
     wilaya: str = ""
     notes: str = ""
+    date_naissance: str = ""
 
 
 class MedicalUpdate(BaseModel):
@@ -96,6 +98,19 @@ def create_patient(
     return {"patient": service.serialize_patient(patient, include_medical=True)}
 
 
+@router.get("/dormant")
+def list_dormant_patients(
+    days: int = 180,
+    limit: int = 20,
+    user: User = Depends(get_current_user),
+    db: OrmSession = Depends(get_db),
+):
+    """Call-back list (relance): active patients not seen for `days`+ days."""
+    days = min(max(1, days), 3650)
+    limit = min(max(1, limit), 100)
+    return {"patients": service.dormant_patients(db, days=days, limit=limit)}
+
+
 @router.get("/{patient_id}")
 def get_patient(
     patient_id: int,
@@ -116,7 +131,8 @@ def update_patient(
 ):
     patient = service.get_patient_or_404(db, patient_id)
     fields = service.validate_patient_input(
-        nom=payload.nom, prenom=payload.prenom, telephone=payload.telephone
+        nom=payload.nom, prenom=payload.prenom, telephone=payload.telephone,
+        date_naissance=payload.date_naissance,
     )
     changed = []
     for key, value in {

@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.core.config import FRONTEND_DIST
+from app.core.config import FRONTEND_DIST, get_settings
 from app.core.db import check_database
 from app.core.errors import register_exception_handlers
 
@@ -20,13 +20,18 @@ logger = logging.getLogger("clinic")
 
 app = FastAPI(title="Clinique Dentaire", docs_url=None, redoc_url=None, openapi_url=None)
 
-# Same-origin in production; permissive localhost origins for development only.
+# Production serves the SPA from the same origin -> no CORS headers at all.
+# Localhost dev origins are enabled for the Nuxt dev server only, plus any
+# extra origins explicitly configured via CLINIC_CORS_EXTRA_ORIGINS.
+_cors_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:52490",
+]
+_cors_origins += [o.strip() for o in get_settings().cors_extra_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,11 +43,14 @@ from app.agenda.api import router as agenda_router  # noqa: E402
 from app.backup.api import router as backup_router  # noqa: E402
 from app.clinical.api import router as clinical_router  # noqa: E402
 from app.core.auth_api import router as auth_router  # noqa: E402
+from app.devis.api import router as devis_router  # noqa: E402
 from app.documents.api import router as documents_router  # noqa: E402
+from app.dsp.api import router as dsp_router  # noqa: E402
 from app.labs.api import router as labs_router  # noqa: E402
 from app.patients.api import router as patients_router  # noqa: E402
 from app.payments.api import router as payments_router  # noqa: E402
 from app.settings.api import router as settings_router  # noqa: E402
+from app.sterilization.api import router as sterilization_router  # noqa: E402
 from app.stock.api import router as stock_router  # noqa: E402
 
 app.include_router(auth_router)
@@ -51,6 +59,9 @@ app.include_router(agenda_router)
 app.include_router(clinical_router)
 app.include_router(payments_router)
 app.include_router(documents_router)
+app.include_router(dsp_router)
+app.include_router(devis_router)
+app.include_router(sterilization_router)
 app.include_router(labs_router)
 app.include_router(stock_router)
 app.include_router(settings_router)

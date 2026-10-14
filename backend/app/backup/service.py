@@ -228,6 +228,14 @@ class BackupScheduler:
 
         db = get_session_factory()()
         try:
+            # Housekeeping: drop expired sessions alongside the daily backup tick.
+            from app.core.auth import purge_expired_sessions
+
+            purge_expired_sessions(db)
+            db.commit()
+        except Exception:
+            db.rollback()
+        try:
             settings_row = get_settings_row(db)
             target_hour = settings_row.backup_hour
             now = now_tz()

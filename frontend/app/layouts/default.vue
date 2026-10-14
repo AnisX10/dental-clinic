@@ -32,6 +32,9 @@ const groups = computed(() => [
     items: [
       { to: "/traitements", icon: "✚", label: t("nav.traitements") },
       { to: "/odontogramme", icon: "◌", label: t("nav.odontogramme") },
+      { to: "/devis", icon: "▤", label: t("nav.devis") },
+      { to: "/dsp", icon: "◈", label: t("nav.dsp") },
+      { to: "/sterilisation", icon: "☢", label: t("nav.sterilisation") },
       { to: "/lab", icon: "⚒", label: t("nav.lab") },
       { to: "/stock", icon: "◫", label: t("nav.stock") },
     ],
@@ -55,9 +58,11 @@ const groups = computed(() => [
     <div v-if="sidebarOpen" class="sidebar-scrim" @click="sidebarOpen = false" />
     <aside class="sidebar" :class="{ open: sidebarOpen }">
       <div class="brand" style="display:flex;align-items:center;gap:10px;padding:4px 12px;">
-        <span
-          style="width:34px;height:34px;border-radius:8px;background:var(--color-primary);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;"
-        >✚</span>
+        <img
+          src="~/assets/logo.svg"
+          alt="HKN"
+          style="height:38px;width:auto;"
+        >
         <span class="brand-name" style="font-weight:650;font-size:15px;">{{ t("common.app_name") }}</span>
       </div>
       <nav class="sidebar-nav">
@@ -88,6 +93,7 @@ const groups = computed(() => [
             @click="sidebarOpen = !sidebarOpen"
           >☰</button>
           <strong style="font-size:15px;">{{ t("common.app_name") }}</strong>
+          <!-- header keeps text name; logo lives in sidebar -->
         </div>
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="field" style="flex-direction:row;align-items:center;gap:8px;">

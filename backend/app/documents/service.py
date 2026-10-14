@@ -14,6 +14,19 @@ from app.patients.service import get_patient_or_404
 DOC_TYPES = ("ordonnance", "certificat", "attestation")
 
 
+def _clean_age(value) -> str:
+    """Patient age on the printed sheet; free text, max 20 chars."""
+    try:
+        return str(value).strip()[:20] if value is not None else ""
+    except Exception:
+        return ""
+
+
+def _clean_sexe(value) -> str:
+    """Patient sex checkbox state: 'M', 'F' or '' (none)."""
+    sexe = str(value or "").strip().upper()
+    return sexe if sexe in ("M", "F") else ""
+
 def validate_content(doc_type: str, content: dict) -> dict:
     content = content or {}
     if doc_type == "ordonnance":
@@ -25,7 +38,12 @@ def validate_content(doc_type: str, content: dict) -> dict:
             text = str(line.get("text", "")).strip() if isinstance(line, dict) else str(line).strip()
             if text:
                 clean.append(text[:300])
-        return {"lines": clean, "note": str(content.get("note", "")).strip()[:500]}
+        return {
+            "lines": clean,
+            "note": str(content.get("note", "")).strip()[:500],
+            "age": _clean_age(content.get("age")),
+            "sexe": _clean_sexe(content.get("sexe")),
+        }
     if doc_type == "certificat":
         duration_days = content.get("duration_days", 0)
         try:
@@ -70,6 +88,16 @@ def get_document_or_404(db: OrmSession, document_id: int) -> Document:
     doc = db.get(Document, document_id)
     if doc is None:
         raise AppError("errors.document_not_found", status_code=404, code="not_found")
+    return doc
+
+
+def update_document(db: OrmSession, doc: Document, *, title: str | None, content: dict | None) -> Document:
+    """Edit an existing document snapshot (ordonnance lines, patient age/sexe...)."""
+    if title is not None:
+        doc.title = title.strip()[:160]
+    if content is not None:
+        doc.content = validate_content(doc.doc_type, content)
+    db.flush()
     return doc
 
 

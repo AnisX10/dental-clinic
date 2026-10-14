@@ -35,9 +35,11 @@ async function submit() {
   <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;">
     <div class="card" style="width:100%;max-width:380px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
-        <span
-          style="width:40px;height:40px;border-radius:8px;background:var(--color-primary);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;"
-        >✚</span>
+        <img
+          src="~/assets/logo.svg"
+          alt="HKN"
+          style="height:44px;width:auto;"
+        >
         <div>
           <h1 style="font-size:20px;font-weight:650;">{{ t("common.app_name") }}</h1>
           <p class="muted small">{{ t("auth.login_title") }}</p>

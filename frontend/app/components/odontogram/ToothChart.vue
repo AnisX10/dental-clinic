@@ -1,13 +1,16 @@
 <script setup lang="ts">
 /**
- * Anatomical odontogram chart (DentalPin-style): two arches of hand-drawn
- * SVG teeth with occlusal views, FDI numbers, surface wedges, hatch overlays
- * for crowns/bridges and ghosted missing teeth.
+ * Anatomical odontogram chart (DentalPin-style): a 4-row layout —
+ * upper anatomy / upper occlusal + numbers / lower occlusal + numbers /
+ * lower anatomy — so the two occlusal rows face each other at the midline.
+ * Surface wedges, occlusal hatching for crowns/bridges, bridge connector
+ * bars at crown level and ghosted missing teeth.
  */
 import {
   ANATOMY,
   DECIDUOUS,
   OCCLUSAL,
+  OCCLUSAL_DETAIL,
   PERMANENT,
   SURFACE_WEDGE,
   isLower,
@@ -34,8 +37,12 @@ const { t } = useI18n()
 
 // Layout constants (kept in sync with the .odonto-* CSS).
 const STRIDE = 62
-const ROW_H = 158
-const BAR_Y = 64
+const GAP_W = 22
+const ANAT_H = 90
+// Crown band of the 50x90 anatomy drawing: unflipped y ≈ 51–86; the lower
+// arch is scaleY(-1)-flipped, so its crown band is mirrored to y ≈ 6–42.
+const UPPER_BAR_Y = 58
+const LOWER_BAR_Y = 23
 
 const uid = Math.random().toString(36).slice(2, 8)
 const hatchId = `odont-hatch-${uid}`
@@ -43,10 +50,19 @@ const hatchRef = `url(#${hatchId})`
 
 const arches = computed(() => (props.dentition === "temporaire" ? DECIDUOUS : PERMANENT))
 
-const rows = computed(() => [
-  { key: "upper", label: t("odontogram.arcade_sup"), teeth: arches.value.upper },
-  { key: "lower", label: t("odontogram.arcade_inf"), teeth: arches.value.lower },
+const anatomyRows = computed(() => [
+  { key: "sup", teeth: arches.value.upper, barY: UPPER_BAR_Y },
+  { key: "inf", teeth: arches.value.lower, barY: LOWER_BAR_Y },
 ])
+
+const occlusalRows = computed(() => [
+  { key: "occl-sup", teeth: arches.value.upper, numFirst: false },
+  { key: "occl-inf", teeth: arches.value.lower, numFirst: true },
+])
+
+const halfCount = computed(() => arches.value.upper.length / 2)
+const rowW = computed(() => arches.value.upper.length * STRIDE - 4 + GAP_W)
+const midX = computed(() => halfCount.value * STRIDE + 9)
 
 const wholeByTooth = computed(() => {
   const map = new Map<number, string>()
@@ -76,6 +92,11 @@ function marks(tooth: number) {
   return surfacesByTooth.value.get(tooth) ?? []
 }
 
+function hatched(tooth: number): boolean {
+  const w = whole(tooth)
+  return w === "couronne" || w === "bridge"
+}
+
 function cellClass(tooth: number): Record<string, boolean> {
   const w = whole(tooth)
   return {
@@ -86,8 +107,7 @@ function cellClass(tooth: number): Record<string, boolean> {
 }
 
 function wedgesVisible(tooth: number): boolean {
-  const w = whole(tooth)
-  return w !== "absent"
+  return whole(tooth) !== "absent"
 }
 
 function wedgeTransform(tooth: number): string {
@@ -97,18 +117,25 @@ function wedgeTransform(tooth: number): string {
   return parts.join(" ")
 }
 
-function rowWidth(row: number[]): number {
-  return row.length * STRIDE - 4
+/** Cell left edge inside a row (accounts for the midline gap). */
+function cellX(i: number, half: number): number {
+  return i * STRIDE + (i >= half ? GAP_W : 0)
 }
 
 function bridgeBars(row: number[]): { x: number, w: number }[] {
   const bars: { x: number, w: number }[] = []
+  const half = row.length / 2
   let start = -1
   for (let i = 0; i <= row.length; i++) {
     const isBridge = i < row.length && whole(row[i]!) === "bridge"
     if (isBridge && start === -1) start = i
     if (!isBridge && start !== -1) {
-      if (i - start >= 2) bars.push({ x: start * STRIDE + 15, w: (i - 1 - start) * STRIDE + 24 })
+      if (i - start >= 2) {
+        // Span symmetrically across the crowns (graphic spans cellX+4..+54).
+        const x = cellX(start, half) + 10
+        const end = cellX(i - 1, half) + 48
+        bars.push({ x, w: end - x })
+      }
       start = -1
     }
   }
@@ -142,15 +169,23 @@ const LEGEND = [
       </defs>
     </svg>
 
-    <div v-for="row in rows" :key="row.key" class="odonto-arch">
-      <div class="odonto-arch-label">{{ row.label }}</div>
-      <div class="odonto-row" :style="{ width: `${rowWidth(row.teeth)}px` }">
-        <svg class="odonto-bars" :width="rowWidth(row.teeth)" :height="ROW_H" aria-hidden="true">
+    <div class="odonto-arch-label">{{ t("odontogram.arcade_sup") }}</div>
+
+    <div class="odonto-rows">
+      <div class="odonto-midline" :style="{ left: `${midX}px` }" aria-hidden="true" />
+
+      <div
+        v-for="anat in anatomyRows"
+        :key="anat.key"
+        class="odonto-row odonto-row-anat"
+        :style="{ width: `${rowW}px` }"
+      >
+        <svg class="odonto-bars" :width="rowW" :height="ANAT_H" aria-hidden="true">
           <rect
-            v-for="(b, i) in bridgeBars(row.teeth)"
+            v-for="(b, i) in bridgeBars(anat.teeth)"
             :key="i"
             :x="b.x"
-            :y="BAR_Y"
+            :y="anat.barY"
             :width="b.w"
             height="9"
             rx="4.5"
@@ -160,11 +195,11 @@ const LEGEND = [
           />
         </svg>
         <button
-          v-for="tooth in row.teeth"
+          v-for="(tooth, i) in anat.teeth"
           :key="tooth"
           type="button"
           class="odonto-cell"
-          :class="cellClass(tooth)"
+          :class="[{ half2: i === halfCount }, cellClass(tooth)]"
           :aria-label="`${t('odontogram.dent')} ${tooth}`"
           :title="toothTitle(tooth)"
           @click="emit('select', tooth)"
@@ -176,36 +211,51 @@ const LEGEND = [
             aria-hidden="true"
           >
             <path
-              v-for="(root, i) in ANATOMY[toothType(tooth)].roots"
-              :key="i"
+              v-for="(root, ri) in ANATOMY[toothType(tooth)].roots"
+              :key="ri"
               :d="root"
               class="tooth-fill"
             />
             <path :d="ANATOMY[toothType(tooth)].crown" class="tooth-fill" />
             <path
-              v-if="whole(tooth) === 'couronne' || whole(tooth) === 'bridge'"
-              :d="ANATOMY[toothType(tooth)].crown"
-              :fill="hatchRef"
-              stroke="none"
-              class="tooth-hatch"
+              v-for="(d, di) in ANATOMY[toothType(tooth)].detail"
+              :key="`d${di}`"
+              :d="d"
+              class="tooth-detail"
             />
           </svg>
+        </button>
+      </div>
 
-          <svg
-            class="tooth-occl"
-            viewBox="0 0 40 40"
-            aria-hidden="true"
-          >
+      <div
+        v-for="oc in occlusalRows"
+        :key="oc.key"
+        class="odonto-row odonto-row-occl"
+        :style="{ width: `${rowW}px` }"
+      >
+        <button
+          v-for="(tooth, i) in oc.teeth"
+          :key="tooth"
+          type="button"
+          class="odonto-cell odonto-cell-occl"
+          :class="[{ half2: i === halfCount }, cellClass(tooth)]"
+          :aria-label="`${t('odontogram.dent')} ${tooth}`"
+          :title="toothTitle(tooth)"
+          @click="emit('select', tooth)"
+        >
+          <span v-if="oc.numFirst" class="tooth-num">{{ tooth }}</span>
+          <svg class="tooth-occl" viewBox="0 0 40 40" aria-hidden="true">
             <path :d="OCCLUSAL[toothType(tooth)]" class="occl-shape" />
             <path
-              v-if="whole(tooth) === 'couronne' || whole(tooth) === 'bridge'"
+              v-if="hatched(tooth)"
               :d="OCCLUSAL[toothType(tooth)]"
               :fill="hatchRef"
               stroke="none"
             />
+            <path :d="OCCLUSAL_DETAIL[toothType(tooth)]" class="occl-detail" />
             <path
               v-if="toothType(tooth) === 'molaire' && whole(tooth) !== 'absent'"
-              d="M20,13 v14 M13,20 h14"
+              d="M20,14.5 v11 M14.5,20 h11"
               class="occl-fissure"
             />
             <g v-if="wedgesVisible(tooth)" :transform="wedgeTransform(tooth)">
@@ -217,11 +267,12 @@ const LEGEND = [
               />
             </g>
           </svg>
-
-          <span class="tooth-num">{{ tooth }}</span>
+          <span v-if="!oc.numFirst" class="tooth-num">{{ tooth }}</span>
         </button>
       </div>
     </div>
+
+    <div class="odonto-arch-label">{{ t("odontogram.arcade_inf") }}</div>
 
     <div class="odonto-legend">
       <span class="lg-item"><span class="lg-glyph lg-plain" />{{ t("odontogram.sain") }}</span>

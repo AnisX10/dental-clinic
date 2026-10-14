@@ -1,4 +1,5 @@
 """Shared API helpers: serialization, pagination, wilaya list."""
+from datetime import date
 from typing import Any
 
 # Algeria's 58 wilayas (names in French, as used by the clinic).
@@ -19,6 +20,13 @@ def paginate(total: int, page: int, per_page: int) -> dict:
     return {"total": total, "page": page, "pages": pages, "per_page": per_page}
 
 
+def _age_years(birth: Any) -> int | None:
+    if not birth:
+        return None
+    today = date.today()
+    return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+
+
 def serialize_patient(p, include_medical: bool = False) -> dict[str, Any]:
     data: dict[str, Any] = {
         "id": p.id,
@@ -27,6 +35,8 @@ def serialize_patient(p, include_medical: bool = False) -> dict[str, Any]:
         "prenom": p.prenom,
         "telephone": p.telephone,
         "telephone2": p.telephone2,
+        "date_naissance": p.date_naissance.isoformat() if p.date_naissance else "",
+        "age_years": _age_years(p.date_naissance),
         "adresse": p.adresse,
         "wilaya": p.wilaya,
         "notes": p.notes,

@@ -10,6 +10,7 @@ from app.core.models import (
     ClinicalNote,
     PatientTreatment,
     ToothState,
+    ToothStateHistory,
     TreatmentCatalogItem,
 )
 from app.core.money import serialize_amount
@@ -300,6 +301,54 @@ def tooth_conditions(db: OrmSession, patient_id: int) -> list[dict]:
     return [{"tooth": r.tooth, "condition": r.state, "surface": r.surface} for r in rows]
 
 
+def tooth_history(db: OrmSession, patient_id: int, limit: int = 200) -> list[ToothStateHistory]:
+    """Append-only audit of odontogram changes, most recent first."""
+    return list(
+        db.execute(
+            select(ToothStateHistory)
+            .where(ToothStateHistory.patient_id == patient_id)
+            .order_by(ToothStateHistory.changed_at.desc(), ToothStateHistory.id.desc())
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
+
+
+def serialize_tooth_history(h: ToothStateHistory, actor_name: str | None = None) -> dict:
+    return {
+        "id": h.id,
+        "tooth": h.tooth,
+        "surface": h.surface,
+        "condition": h.condition,
+        "action": h.action,
+        "changed_at": h.changed_at.isoformat(),
+        "changed_by": actor_name,
+    }
+
+
+def _record_tooth_history(
+    db: OrmSession,
+    *,
+    patient_id: int,
+    tooth: int,
+    surface: str,
+    condition: str,
+    action: str,
+    actor_id: int | None,
+) -> None:
+    db.add(
+        ToothStateHistory(
+            patient_id=patient_id,
+            tooth=tooth,
+            surface=surface,
+            condition=condition,
+            action=action,
+            changed_by=actor_id,
+        )
+    )
+
+
 def _upsert_tooth_row(
     db: OrmSession, *, patient_id: int, tooth: int, surface: str, state: str, actor_id: int | None
 ) -> None:
@@ -344,7 +393,16 @@ def set_tooth_condition(
             if surface not in TOOTH_SURFACES:
                 raise AppError("errors.surface_required", status_code=400, code="surface_required")
             where.append(ToothState.surface == surface)
-        db.execute(delete(ToothState).where(*where))
+        deleted = db.execute(delete(ToothState).where(*where))
+        removed = deleted.rowcount or 0
+        if removed:
+            # Audit only when something actually changed, so empty clearings
+            # don't fill the log. A whole-tooth reset purges surface marks too:
+            # one row covers the reset (details live in tooth_states before it).
+            _record_tooth_history(
+                db, patient_id=patient_id, tooth=tooth, surface=surface,
+                condition="sain", action="clear", actor_id=actor_id,
+            )
         db.flush()
         return {"tooth": tooth, "condition": "sain", "surface": surface}
 
@@ -356,6 +414,10 @@ def set_tooth_condition(
             raise AppError("errors.surface_required", status_code=400, code="surface_required")
         _upsert_tooth_row(
             db, patient_id=patient_id, tooth=tooth, surface=surface, state=condition, actor_id=actor_id
+        )
+        _record_tooth_history(
+            db, patient_id=patient_id, tooth=tooth, surface=surface,
+            condition=condition, action="set", actor_id=actor_id,
         )
         db.flush()
         return {"tooth": tooth, "condition": condition, "surface": surface}
@@ -371,6 +433,10 @@ def set_tooth_condition(
     )
     _upsert_tooth_row(
         db, patient_id=patient_id, tooth=tooth, surface="", state=condition, actor_id=actor_id
+    )
+    _record_tooth_history(
+        db, patient_id=patient_id, tooth=tooth, surface="",
+        condition=condition, action="set", actor_id=actor_id,
     )
     db.flush()
     return {"tooth": tooth, "condition": condition, "surface": ""}

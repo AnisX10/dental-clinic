@@ -63,9 +63,9 @@ Use a restrained palette with semantic roles rather than color variety.
 | Text primary | `--color-text` | `#17212B` | Main content |
 | Text secondary | `--color-text-muted` | `#66717D` | Supporting labels |
 | Border | `--color-border` | `#E2E7EC` | Quiet separation |
-| Primary | `--color-primary` | `#245B73` | Main actions, active navigation |
-| Primary dark | `--color-primary-dark` | `#19485C` | Hover/pressed states |
-| Accent | `--color-accent` | `#3A8C87` | Small positive/clinical accent |
+| Primary | `--color-primary` | `#0040DC` | Main actions, active navigation (HKN brand blue) |
+| Primary dark | `--color-primary-dark` | `#0033B0` | Hover/pressed states |
+| Accent | `--color-accent` | `#0B64D8` | Small positive/clinical accent |
 | Success | `--color-success` | `#2D7A5A` | Completed/success feedback |
 | Warning | `--color-warning` | `#9A6A18` | Caution / attention |
 | Danger | `--color-danger` | `#B34A4A` | Destructive/error states |
@@ -95,16 +95,24 @@ Reste         3 000 DA
 ### Primary type system
 Use a clean sans-serif with strong French and Arabic support.
 
-Recommended stack:
+HKN brand fonts (commercial, see `branding/fonts/README.md`):
+
+- Latin + documents: **PP Neue Montreal** (Pangram Pangram).
+- Arabic: **Janah LT** (Linotype, Nadine Chahine).
+
+They are wired via `@font-face` and activated automatically when licensed
+`.woff2` files are placed in `frontend/app/assets/fonts/`. Until then the
+bundled open-license fallbacks remain active:
 
 ```css
-font-family: Inter, "Segoe UI", Arial, sans-serif;
+/* Latin stack (used by default) */
+font-family: "PP Neue Montreal", Inter, "Segoe UI", Arial, sans-serif;
 ```
 
-Arabic-capable fallback:
+Arabic-capable stack (applied under `[lang="ar"]` / RTL):
 
 ```css
-font-family: Inter, "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+font-family: "Janah LT", "Noto Sans Arabic", Tahoma, Arial, sans-serif;
 ```
 
 For a fully offline build, fonts must be bundled or available locally. Do not load them from a public CDN at runtime.
