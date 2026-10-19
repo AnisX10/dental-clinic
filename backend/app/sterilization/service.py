@@ -36,13 +36,11 @@ def _validate_items(items: list[dict]) -> list[dict]:
         if not name:
             raise AppError("errors.invalid_sterilization_item", status_code=400, code="invalid_item")
         qty = raw.get("quantity", 1)
-        try:
-            qty = max(1, int(qty))
-        except (TypeError, ValueError):
-            raise AppError("errors.invalid_sterilization_item", status_code=400, code="invalid_item") from None
+        if isinstance(qty, bool) or not isinstance(qty, int) or qty < 1 or qty > 999:
+            raise AppError("errors.invalid_sterilization_item", status_code=400, code="invalid_item")
         instrument_status = raw.get("instrument_status", "sterile")
         if instrument_status not in ITEM_STATUSES:
-            instrument_status = "sterile"
+            raise AppError("errors.invalid_sterilization_item", status_code=400, code="invalid_item")
         clean.append({"item_name": name[:160], "quantity": qty, "instrument_status": instrument_status})
     return clean
 

@@ -13,14 +13,14 @@ export function useDates() {
     if (!iso) return "—"
     const d = new Date(iso)
     if (Number.isNaN(d.getTime())) return iso
-    return `${fmtDate(iso)} ${d.toLocaleTimeString("fr-DZ", { hour: "2-digit", minute: "2-digit", timeZone: TZ })}`
+    return `${fmtDate(iso)} ${d.toLocaleTimeString("fr-DZ", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: TZ })}`
   }
 
   function fmtTime(iso: string | null | undefined): string {
     if (!iso) return "—"
     const d = new Date(iso)
     if (Number.isNaN(d.getTime())) return iso
-    return d.toLocaleTimeString("fr-DZ", { hour: "2-digit", minute: "2-digit", timeZone: TZ })
+    return d.toLocaleTimeString("fr-DZ", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: TZ })
   }
 
   function todayIso(): string {

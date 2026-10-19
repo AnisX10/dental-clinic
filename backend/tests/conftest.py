@@ -1,18 +1,27 @@
 """Shared pytest fixtures: isolated PostgreSQL database per session, FastAPI client."""
+import os
 import pathlib
 import sys
+
+import pytest
 
 # Ensure the backend package resolves before app imports.
 BACKEND_DIR = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_DIR))
 
-import pgserver  # noqa: E402
-import pytest  # noqa: E402
+_test_db_env = os.environ.get("CLINIC_TEST_DATABASE_URL") or os.environ.get("TEST_DATABASE_URL")
+_server = None
 
-# Dedicated test pgdata so tests never touch clinic data.
-_test_pgdata = BACKEND_DIR.parent / "data" / "pgdata-test"
-_test_pgdata.parent.mkdir(parents=True, exist_ok=True)
-_server = pgserver.get_server(str(_test_pgdata), cleanup_mode=None)
+if not _test_db_env:
+    try:
+        import pgserver  # E402 deliberately after sys.path bootstrap
+
+        _test_pgdata = BACKEND_DIR.parent / "data" / "pgdata-test"
+        _test_pgdata.parent.mkdir(parents=True, exist_ok=True)
+        _server = pgserver.get_server(str(_test_pgdata), cleanup_mode=None)
+    except (ImportError, Exception):
+        # Fallback to local PostgreSQL instance (e.g. on Python 3.12+ where pgserver is unsupported)
+        _test_db_env = "postgresql+psycopg://postgres@127.0.0.1:5432/clinic_test"
 
 
 @pytest.fixture(autouse=True)
@@ -29,6 +38,19 @@ def _reset_rate_limiter():
 def db_url():
     from sqlalchemy import text
     from sqlalchemy.engine import make_url
+
+    if _test_db_env:
+        target_url = make_url(_test_db_env)
+        admin_url = target_url.set(database="postgres")
+        admin = create_admin_engine(str(admin_url))
+        with admin.connect() as conn:
+            exists = conn.execute(
+                text(f"SELECT 1 FROM pg_database WHERE datname = '{target_url.database}'")
+            ).scalar()
+            if not exists:
+                conn.execute(text(f'CREATE DATABASE "{target_url.database}"'))
+        admin.dispose()
+        return str(target_url)
 
     uri = _server.get_uri()
     url = make_url(uri).set(database="clinic_test")

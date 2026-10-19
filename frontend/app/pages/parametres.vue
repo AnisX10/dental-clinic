@@ -16,10 +16,7 @@ interface Settings {
   backup_hour: number, backup_keep_daily: number, backup_keep_manual: number,
 }
 interface BackupStatus {
-  last_success_at: string | null
-  last_success_file: string | null
-  last_error: string | null
-  scheduled_hour: number | null
+  last_success: { at: string, kind: string, size_bytes: number } | null
 }
 
 const settings = ref<Settings | null>(null)
@@ -157,11 +154,8 @@ async function runBackup() {
         <div class="money-row">
           <span class="money-label">{{ t("settings.backup_last") }}</span>
           <span class="small">
-            {{ backup?.last_success_at ? dates.fmtDateTime(backup.last_success_at) : t("settings.backup_none") }}
+            {{ backup?.last_success ? dates.fmtDateTime(backup.last_success.at) : t("settings.backup_none") }}
           </span>
-        </div>
-        <div v-if="backup?.last_error" class="alert alert-error" style="margin-top:12px;">
-          {{ backup.last_error }}
         </div>
 
         <div v-if="canEdit" style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;">

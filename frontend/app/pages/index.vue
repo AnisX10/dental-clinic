@@ -76,6 +76,15 @@ function fmtQty(v: string): string {
   return Number.isFinite(n) ? String(n) : v
 }
 
+const stats = computed(() => {
+  const appts = data.value?.appointments ?? []
+  const total = appts.length
+  const enCours = appts.filter(a => a.status === "en_cours" && !a.cancelled && !a.absent).length
+  const enAttente = appts.filter(a => a.status === "arrive" && !a.cancelled && !a.absent).length
+  const termines = appts.filter(a => a.status === "termine" && !a.cancelled && !a.absent).length
+  return { total, enCours, enAttente, termines }
+})
+
 const NEXT: Record<string, { key: string, to: string }[]> = {
   a_venir: [
     { key: "action.arrive", to: "arrive" },
@@ -174,7 +183,8 @@ function statusClass(a: Appt): string {
 </script>
 
 <template>
-  <div>
+  <div class="today-page-container">
+    <!-- Header Toolbar -->
     <div class="toolbar">
       <div>
         <h1 class="page-title">{{ t("today.title") }}</h1>
@@ -182,46 +192,116 @@ function statusClass(a: Appt): string {
           {{ data ? dates.weekdayLong(data.date) : "" }}
         </p>
       </div>
-      <NuxtLink to="/rendez-vous" class="btn btn-primary">{{ t("today.nouveau_rdv") }}</NuxtLink>
+      <NuxtLink to="/rendez-vous" class="btn btn-primary">
+        <AppIcon name="plus" size="14" />
+        <span>{{ t("today.nouveau_rdv") }}</span>
+      </NuxtLink>
     </div>
 
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
 
+    <!-- KPI Metric Cards Grid -->
+    <div class="kpi-grid">
+      <div class="kpi-card card">
+        <div class="kpi-icon-wrap kpi-blue">
+          <AppIcon name="calendar" size="20" />
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-label">Rendez-vous</span>
+          <span class="kpi-val">{{ stats.total }}</span>
+          <span class="kpi-sub">{{ stats.termines }} terminé(s)</span>
+        </div>
+      </div>
+
+      <div class="kpi-card card">
+        <div class="kpi-icon-wrap kpi-amber">
+          <AppIcon name="tooth" size="20" />
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-label">Au fauteuil</span>
+          <span class="kpi-val">{{ stats.enCours }}</span>
+          <span class="kpi-sub">En cours de soin</span>
+        </div>
+      </div>
+
+      <div class="kpi-card card">
+        <div class="kpi-icon-wrap kpi-indigo">
+          <AppIcon name="clock" size="20" />
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-label">Salle d'attente</span>
+          <span class="kpi-val">{{ stats.enAttente }}</span>
+          <span class="kpi-sub">Patient(s) arrivés</span>
+        </div>
+      </div>
+
+      <div class="kpi-card card">
+        <div class="kpi-icon-wrap kpi-emerald">
+          <AppIcon name="wallet" size="20" />
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-label">{{ t("today.recettes_du_jour") }}</span>
+          <span class="kpi-val">{{ data ? money.fmt(data.summary.recettes_du_jour) : "0 DA" }}</span>
+          <span class="kpi-sub">{{ data?.summary.nombre_paiements ?? 0 }} encaissement(s)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Layout -->
     <div class="today-grid">
-      <div class="card" style="padding:0;">
-        <div v-if="loading" style="padding:8px 16px 16px;" aria-hidden="true">
+      <!-- Appointments Main Card -->
+      <div class="card appointments-card" style="padding:0;">
+        <div class="card-header-bar">
+          <span class="card-header-title">Séances et rendez-vous du jour</span>
+          <span class="badge badge-a_venir">{{ data?.appointments?.length ?? 0 }} patients</span>
+        </div>
+
+        <div v-if="loading" style="padding:16px;" aria-hidden="true">
           <div v-for="i in 5" :key="i" class="skeleton skeleton-row" />
         </div>
+
         <div v-else-if="!data?.appointments?.length" class="empty-state">
-          <span class="empty-icon">◉</span>
-          {{ t("today.aucun_rdv") }}
-          <div class="empty-hint">{{ t("today.nouveau_rdv") }}</div>
+          <AppIcon name="calendar" size="32" class="muted" style="margin-bottom:8px;opacity:0.6;" />
+          <div style="font-weight:600;margin-bottom:4px;">{{ t("today.aucun_rdv") }}</div>
+          <div class="small muted">{{ t("today.nouveau_rdv") }}</div>
         </div>
-        <table v-else class="table">
+
+        <table v-else class="table appt-table">
           <tbody>
-            <tr v-for="a in data.appointments" :key="a.id">
-              <td style="width:70px;font-variant-numeric:tabular-nums;">
-                <template v-if="a.cancelled">—</template>
-                <template v-else>{{ a.time ?? t("appointment.sans_heure") }}</template>
+            <tr v-for="a in data.appointments" :key="a.id" class="appt-row">
+              <td class="appt-time-cell">
+                <div class="time-chip">
+                  <AppIcon name="clock" size="13" class="muted" />
+                  <span>
+                    <template v-if="a.cancelled">—</template>
+                    <template v-else>{{ a.time ?? t("appointment.sans_heure") }}</template>
+                  </span>
+                </div>
               </td>
               <td>
-                <NuxtLink :to="`/patients/${a.patient.id}`" style="font-weight:600;">
-                  {{ a.patient.nom }} {{ a.patient.prenom }}
-                </NuxtLink>
-                <div class="small muted">{{ a.patient.telephone }}</div>
-                <div v-if="a.motif" class="small muted">{{ a.motif }}</div>
+                <div class="patient-cell-wrap">
+                  <div class="patient-mini-avatar">
+                    {{ ((a.patient.prenom?.[0] || '') + (a.patient.nom?.[0] || '')).toUpperCase() }}
+                  </div>
+                  <div class="patient-cell-info">
+                    <NuxtLink :to="`/patients/${a.patient.id}`" class="patient-cell-name">
+                      {{ a.patient.nom }} {{ a.patient.prenom }}
+                    </NuxtLink>
+                    <div class="small muted">{{ a.patient.telephone }} <span v-if="a.motif">· {{ a.motif }}</span></div>
+                  </div>
+                </div>
               </td>
-              <td style="width:110px;">
+              <td style="width:120px;">
                 <span :class="statusClass(a)">{{ t(statusKey(a)) }}</span>
               </td>
               <td
                 v-if="!a.cancelled && !a.absent && a.status !== 'termine'"
-                style="width:1%;white-space:nowrap;"
+                class="appt-actions-cell"
               >
                 <button
                   v-for="n in NEXT[a.status] ?? []"
                   :key="n.to"
-                  class="btn btn-text btn-sm"
+                  class="btn btn-secondary btn-sm"
                   :disabled="busyId === a.id"
                   @click="setStatus(a, n.to)"
                 >
@@ -236,9 +316,10 @@ function statusClass(a: Appt): string {
                   v-if="a.status === 'a_venir'"
                   class="btn btn-text btn-sm"
                   :disabled="busyId === a.id"
+                  :title="t('action.cancel_rdv')"
                   @click="confirmCancel = a"
                 >
-                  {{ t("action.cancel_rdv") }}
+                  ✕
                 </button>
               </td>
             </tr>
@@ -246,70 +327,77 @@ function statusClass(a: Appt): string {
         </table>
       </div>
 
-      <div style="display:flex;flex-direction:column;gap:24px;">
-        <div class="card">
-          <h2 class="section-title" style="margin-bottom:12px;">{{ t("today.recettes_du_jour") }}</h2>
-          <div class="money-row">
-            <span class="money-label">{{ t("today.recettes_du_jour") }}</span>
-            <span class="money-value">{{ data ? money.fmt(data.summary.recettes_du_jour) : "" }}</span>
+      <!-- Right Alerts & Relance Column -->
+      <div class="today-side-col">
+        <div v-if="hasAlerts" class="card alerts-card">
+          <div class="side-card-title">
+            <AppIcon name="alert-triangle" size="16" class="alert-title-icon" />
+            <span>{{ t("today.alertes") }}</span>
           </div>
-          <div class="money-row">
-            <span class="money-label">{{ t("today.nombre_paiements") }}</span>
-            <span class="money-value">{{ data?.summary.nombre_paiements ?? 0 }}</span>
-          </div>
-        </div>
 
-        <div v-if="hasAlerts" class="card">
-          <h2 class="section-title" style="margin-bottom:8px;">{{ t("today.alertes") }}</h2>
           <NuxtLink
             v-if="labActive > 0 || labOverdue.length > 0"
             to="/lab"
-            class="alert-row"
+            class="alert-item"
           >
-            <span class="alert-count">{{ labActive }}</span>
-            <span>{{ t("today.lab_en_cours") }}</span>
-            <span v-if="labOverdue.length" class="badge badge-low">
-              {{ labOverdue.length }} {{ t("today.lab_en_retard") }}
-            </span>
-          </NuxtLink>
-          <template v-if="lowItems.length">
-            <div class="alert-row" style="cursor:default;">
-              <span class="alert-count danger">{{ lowItems.length }}</span>
-              <span>{{ t("today.stock_articles_bas") }}</span>
+            <div class="alert-icon-box">
+              <AppIcon name="lab" size="15" />
             </div>
+            <div class="alert-text-box">
+              <span class="alert-main-text">{{ labActive }} {{ t("today.lab_en_cours") }}</span>
+              <span v-if="labOverdue.length" class="alert-sub-warn">
+                {{ labOverdue.length }} {{ t("today.lab_en_retard") }}
+              </span>
+            </div>
+          </NuxtLink>
+
+          <template v-if="lowItems.length">
             <NuxtLink
-              v-for="it in lowItems"
-              :key="it.id"
               to="/stock?bas=1"
-              class="alert-row sub"
+              class="alert-item"
             >
-              <span>{{ it.name }}</span>
-              <span class="alert-qty">{{ fmtQty(it.stock_quantity) }} / {{ fmtQty(it.min_quantity) }} {{ it.unit }}</span>
+              <div class="alert-icon-box warn">
+                <AppIcon name="stock" size="15" />
+              </div>
+              <div class="alert-text-box">
+                <span class="alert-main-text">{{ lowItems.length }} {{ t("today.stock_articles_bas") }}</span>
+                <span class="alert-sub-warn">Niveaux critiques atteints</span>
+              </div>
             </NuxtLink>
           </template>
-          <NuxtLink v-if="backupOverdue" to="/parametres" class="alert-row">
-            <span class="alert-count danger">!</span>
-            <span>{{ t("today.backup_overdue") }}</span>
+
+          <NuxtLink v-if="backupOverdue" to="/parametres" class="alert-item">
+            <div class="alert-icon-box danger">
+              <AppIcon name="alert-circle" size="15" />
+            </div>
+            <div class="alert-text-box">
+              <span class="alert-main-text danger-text">{{ t("today.backup_overdue") }}</span>
+              <span class="alert-sub-warn">Vérifiez vos sauvegardes</span>
+            </div>
           </NuxtLink>
         </div>
 
-        <div v-if="dormant.length" class="card">
-          <h2 class="section-title" style="margin-bottom:8px;">{{ t("today.relance") }}</h2>
+        <div v-if="dormant.length" class="card relance-card">
+          <div class="side-card-title">
+            <AppIcon name="clock" size="16" class="muted" />
+            <span>{{ t("today.relance") }}</span>
+          </div>
           <NuxtLink
             v-for="p in dormant"
             :key="p.id"
             :to="`/patients/${p.id}`"
-            class="alert-row sub"
+            class="relance-item"
           >
-            <span>{{ p.nom }} {{ p.prenom }}</span>
-            <span class="alert-qty">
+            <div class="relance-patient-name">{{ p.nom }} {{ p.prenom }}</div>
+            <div class="relance-meta">
               {{ p.days_since_visit }} {{ t("today.relance_jours") }} · {{ p.telephone }}
-            </span>
+            </div>
           </NuxtLink>
         </div>
       </div>
     </div>
 
+    <!-- Confirm Cancel Dialog -->
     <AppDialog :open="confirmCancel !== null" :title="t('action.confirmer_cancel')" @close="confirmCancel = null">
       <template v-if="confirmCancel">
         <p>
@@ -326,3 +414,235 @@ function statusClass(a: Appt): string {
     </AppDialog>
   </div>
 </template>
+
+<style scoped>
+.today-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* KPI Cards Grid */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+}
+
+.kpi-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpi-blue { background: #eef2ff; color: #0040dc; }
+.kpi-amber { background: #fef3c7; color: #b45309; }
+.kpi-indigo { background: #e0e7ff; color: #4338ca; }
+.kpi-emerald { background: #ecfdf5; color: #047857; }
+
+.kpi-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.kpi-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted, #64748b);
+}
+
+.kpi-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text, #0f172a);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.kpi-sub {
+  font-size: 11.5px;
+  color: var(--color-text-subtle, #94a3b8);
+}
+
+/* Appointments Card */
+.card-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--color-border-subtle, #f1f5f9);
+}
+
+.card-header-title {
+  font-weight: 650;
+  font-size: 14px;
+  color: var(--color-text, #0f172a);
+}
+
+.appt-time-cell {
+  width: 90px;
+}
+
+.time-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text, #0f172a);
+  font-variant-numeric: tabular-nums;
+  background: var(--color-canvas, #f8fafc);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-subtle, #edf2f7);
+}
+
+.patient-cell-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.patient-mini-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary-soft, #eef2ff);
+  color: var(--color-primary, #0040dc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.patient-cell-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-text, #0f172a);
+  text-decoration: none;
+  transition: color 0.12s ease;
+}
+
+.patient-cell-name:hover {
+  color: var(--color-primary, #0040dc);
+}
+
+.appt-actions-cell {
+  width: 1%;
+  white-space: nowrap;
+  display: flex;
+  gap: 6px;
+  padding-inline-end: 16px;
+}
+
+/* Side Column Cards */
+.today-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.side-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: var(--color-text, #0f172a);
+}
+
+.alert-title-icon {
+  color: var(--color-warning, #f59e0b);
+}
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background 0.12s ease;
+  margin-bottom: 4px;
+}
+
+.alert-item:hover {
+  background: var(--color-canvas, #f8fafc);
+}
+
+.alert-icon-box {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #eef2ff;
+  color: #0040dc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.alert-icon-box.warn { background: #fef3c7; color: #b45309; }
+.alert-icon-box.danger { background: #fef2f2; color: #dc2626; }
+
+.alert-text-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.alert-main-text {
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--color-text, #0f172a);
+}
+
+.alert-sub-warn {
+  font-size: 11.5px;
+  color: var(--color-text-muted, #64748b);
+}
+
+.danger-text {
+  color: var(--color-danger, #ef4444);
+}
+
+.relance-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+
+.relance-item:hover {
+  background: var(--color-canvas, #f8fafc);
+}
+
+.relance-patient-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text, #0f172a);
+}
+
+.relance-meta {
+  font-size: 11.5px;
+  color: var(--color-text-muted, #64748b);
+}
+</style>

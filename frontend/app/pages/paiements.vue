@@ -64,7 +64,7 @@ await load()
 
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
 
-    <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start;">
+    <div class="day-grid">
       <div class="card">
         <h2 class="section-title" style="margin-bottom:12px;">{{ t("payments.journalier") }}</h2>
         <div class="money-row">
@@ -77,13 +77,13 @@ await load()
         </div>
       </div>
 
-      <div class="card" style="padding:0;">
+      <div class="card" style="padding:0;overflow-x:auto;">
         <div v-if="loading" style="padding:8px 16px 16px;" aria-hidden="true">
           <div v-for="i in 5" :key="i" class="skeleton skeleton-row" />
         </div>
         <div v-else-if="!payments.length" class="empty-state">
-          <span class="empty-icon">₽</span>
-          {{ t("payments.aucun") }}
+          <AppIcon name="paiements" size="32" class="empty-icon" style="margin-bottom:8px;opacity:0.6;" />
+          <div>{{ t("payments.aucun") }}</div>
         </div>
         <table v-else class="table">
           <thead>
@@ -115,3 +115,17 @@ await load()
     </div>
   </div>
 </template>
+
+<style scoped>
+.day-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .day-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

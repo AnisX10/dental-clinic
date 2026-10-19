@@ -489,7 +489,7 @@ await loadOrders()
                 <th>{{ t("lab.teinte") }}</th>
                 <th class="num">{{ t("lab.prix") }}</th>
                 <th>{{ t("lab.date_souhaitee") }}</th>
-                <th>{{ t("status.envoye") }}</th>
+                <th>{{ t("common.statut") }}</th>
                 <th style="min-width:220px;">{{ t("common.actions") }}</th>
               </tr>
             </thead>

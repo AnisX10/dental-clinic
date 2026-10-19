@@ -46,39 +46,41 @@ async function submit() {
         </div>
       </div>
 
-      <div class="field" style="margin-bottom:12px;">
-        <label for="username">{{ t("auth.username") }}</label>
-        <input
-          id="username"
-          v-model="username"
-          class="input"
-          autocomplete="username"
-          autofocus
-          @keyup.enter="submit"
-        >
-      </div>
-      <div class="field" style="margin-bottom:20px;">
-        <label for="password">{{ t("auth.password") }}</label>
-        <input
-          id="password"
-          v-model="password"
-          class="input"
-          type="password"
-          autocomplete="current-password"
-          @keyup.enter="submit"
-        >
-      </div>
+      <form style="display:contents;" @submit.prevent="submit">
+        <div class="field" style="margin-bottom:12px;">
+          <label for="username">{{ t("auth.username") }}</label>
+          <input
+            id="username"
+            v-model="username"
+            class="input"
+            name="username"
+            autocomplete="username"
+            autofocus
+          >
+        </div>
+        <div class="field" style="margin-bottom:20px;">
+          <label for="password">{{ t("auth.password") }}</label>
+          <input
+            id="password"
+            v-model="password"
+            class="input"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+          >
+        </div>
 
-      <div v-if="errorKey" class="alert alert-error" role="alert">{{ t(errorKey) }}</div>
+        <div v-if="errorKey" class="alert alert-error" role="alert">{{ t(errorKey) }}</div>
 
-      <button
-        class="btn btn-primary"
-        style="width:100%;"
-        :disabled="submitting"
-        @click="submit"
-      >
-        {{ submitting ? t("auth.logging_in") : t("auth.login") }}
-      </button>
+        <button
+          type="submit"
+          class="btn btn-primary"
+          style="width:100%;"
+          :disabled="submitting"
+        >
+          {{ submitting ? t("auth.logging_in") : t("auth.login") }}
+        </button>
+      </form>
 
       <div style="margin-top:20px;display:flex;justify-content:center;">
         <select

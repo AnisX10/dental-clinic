@@ -152,9 +152,16 @@ def test_odontogram_surface_marks(owner_client, users):
     assert owner_client.put(path, json={"tooth": 16, "condition": "obturation", "surface": "occlusale"}).status_code == 200
     assert owner_client.put(path, json={"tooth": 16, "condition": "carie", "surface": "mesiale"}).status_code == 200
     assert conds() == {(16, "occlusale"): "obturation", (16, "mesiale"): "carie"}
-    # Whole-tooth conditions replace surface marks on the same tooth
+    # Couronne coexists with surface marks (a crowned tooth may keep carie /
+    # obturation records); other whole-tooth conditions replace surface marks
     assert owner_client.put(path, json={"tooth": 16, "condition": "couronne"}).status_code == 200
-    assert conds() == {(16, ""): "couronne"}
+    assert conds() == {
+        (16, ""): "couronne",
+        (16, "occlusale"): "obturation",
+        (16, "mesiale"): "carie",
+    }
+    assert owner_client.put(path, json={"tooth": 16, "condition": "bridge"}).status_code == 200
+    assert conds() == {(16, ""): "bridge"}
     # A whole-tooth condition never carries a surface
     resp = owner_client.put(path, json={"tooth": 16, "condition": "couronne", "surface": "occlusale"})
     assert resp.status_code == 400

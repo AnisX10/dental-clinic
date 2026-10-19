@@ -1,4 +1,5 @@
-"""Clinic settings API. Identity fields are owner-protected; backup options too."""
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session as OrmSession
@@ -7,6 +8,7 @@ from app.core.audit import log_action
 from app.core.auth import get_client_ip, get_current_user, require_owner
 from app.core.db import get_db
 from app.core.models import User
+from app.core.money import to_money
 from app.core.services import get_settings_row
 from app.documents.service import clinic_template_data
 
@@ -25,8 +27,8 @@ class SettingsUpdate(BaseModel):
     backup_keep_manual: int | None = None
     dsp_default_caisse: str | None = None
     dsp_default_code: str | None = None
-    dsp_default_coefficient: float | None = None
-    dsp_default_fee: float | None = None
+    dsp_default_coefficient: str | int | float | None = None
+    dsp_default_fee: str | int | float | None = None
 
 
 @router.get("")
@@ -103,12 +105,20 @@ def update_settings(
             settings.dsp_default_code = code
             changes.append("dsp_default_code")
     if payload.dsp_default_coefficient is not None:
-        coeff = max(0, int(payload.dsp_default_coefficient))
+        try:
+            coeff = max(Decimal("0.00"), Decimal(str(payload.dsp_default_coefficient)))
+        except (ValueError, ArithmeticError):
+            raise AppError("errors.invalid_amount", status_code=400, code="invalid_amount") from None
         if coeff != settings.dsp_default_coefficient:
             settings.dsp_default_coefficient = coeff
             changes.append("dsp_default_coefficient")
     if payload.dsp_default_fee is not None:
-        fee = max(0, int(payload.dsp_default_fee))
+        try:
+            fee = to_money(payload.dsp_default_fee)
+            if fee < 0:
+                raise ValueError
+        except ValueError:
+            raise AppError("errors.invalid_amount", status_code=400, code="invalid_amount") from None
         if fee != settings.dsp_default_fee:
             settings.dsp_default_fee = fee
             changes.append("dsp_default_fee")

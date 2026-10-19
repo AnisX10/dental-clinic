@@ -23,7 +23,7 @@ _last_run: dict = {}
 
 
 def _pg_dump_path() -> str | None:
-    """Locate pg_dump: bundled with pgserver first, then system PATH."""
+    """Locate pg_dump binary directory: bundled with pgserver first, then standard paths, then system PATH."""
     try:
         import pgserver
 
@@ -34,7 +34,17 @@ def _pg_dump_path() -> str | None:
         pass
     from shutil import which
 
-    return which("pg_dump")
+    found = which("pg_dump")
+    if found:
+        return str(Path(found).parent)
+
+    for pg_root in (Path(r"C:\Program Files\PostgreSQL"), Path(r"C:\Program Files (x86)\PostgreSQL")):
+        if pg_root.is_dir():
+            for pg_dir in pg_root.glob("*/bin"):
+                if (pg_dir / "pg_dump.exe").is_file():
+                    return str(pg_dir)
+
+    return None
 
 
 def run_backup(db: OrmSession, *, kind: str, reason: str = "") -> BackupRecord:
@@ -57,7 +67,7 @@ def run_backup(db: OrmSession, *, kind: str, reason: str = "") -> BackupRecord:
         target = backups_dir / f"clinic_{kind}_{stamp}_{counter}.dump"
         counter += 1
 
-    url = get_engine().url
+    url = get_engine().url.set(drivername="postgresql")
     bin_dir = _pg_dump_path()
     pg_dump = (str(Path(bin_dir) / "pg_dump") if bin_dir else "pg_dump")
 

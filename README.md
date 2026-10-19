@@ -5,8 +5,8 @@ built from the spec in [`dental-clinic-spec/`](dental-clinic-spec/README.md).
 
 - **Single-port deployment** — FastAPI serves both the API (`/api/*`) and the
   built Nuxt SPA on `http://127.0.0.1:8000`.
-- **Bundled PostgreSQL 16** — no installation, no admin rights; data lives in
-  `data/pgdata`.
+- **Bundled PostgreSQL 16** (pgserver — no installation, no admin rights);
+  data lives in `data/pgdata`.
 - **French default UI, Arabic (RTL) available** — fully offline, fonts bundled.
 - **Cash-only payments** in DZD with per-patient ledger (Total / Payé / Reste).
 - **Odontogramme** — anatomical chart inside the patient file with permanent and
@@ -24,7 +24,7 @@ built from the spec in [`dental-clinic-spec/`](dental-clinic-spec/README.md).
 
 ```
 backend/    FastAPI app (app/), Alembic migrations, pytest suite
-frontend/   Nuxt 4 SPA (source + ready-made build in .output/public)
+frontend/   Nuxt 4 SPA (source + build in .output/public — see DEPLOY.md §5)
 data/       pgdata, backups, attachments (created at runtime)
 scripts/    start.bat / start.sh
 ```
@@ -57,11 +57,12 @@ cd backend
 ..\.venv\Scripts\python -m ruff check .
 ```
 
-67 tests cover auth, patients, agenda transitions, clinical modules (including
+91 tests cover auth, patients, agenda transitions, clinical modules (including
 odontogram conditions and surface marks), the concurrency-safe payments
-ledger, documents, backups, lab orders/invoices, and the stock ledger
-(including treatment auto-deduction). Tests run against a separate disposable
-PostgreSQL instance (`data/pgdata-test`).
+ledger, documents, backups, lab orders/invoices, sterilization cycles,
+DSP/CNAS and devis, and the stock ledger (including treatment
+auto-deduction). Tests run against a separate disposable PostgreSQL instance
+(`data/pgdata-test`).
 
 ## Security notes
 

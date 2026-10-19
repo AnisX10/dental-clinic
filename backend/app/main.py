@@ -83,6 +83,8 @@ if _dist.is_dir():
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa(full_path: str):
+        if full_path.startswith("api/") or full_path == "api":
+            return JSONResponse({"error": {"code": "not_found", "message_key": "errors.not_found"}}, status_code=404)
         candidate = (_dist / full_path).resolve()
         if full_path and candidate.is_file() and str(candidate).startswith(str(_dist.resolve())):
             return FileResponse(candidate)

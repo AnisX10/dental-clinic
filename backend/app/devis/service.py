@@ -38,7 +38,11 @@ def _validate_items(db: OrmSession, items: list[dict]) -> list[dict]:
         except (TypeError, ValueError):
             raise AppError("errors.invalid_devis_item", status_code=400, code="invalid_devis_item") from None
         try:
-            price = max(0, float(raw.get("unit_price", 0)))
+            from app.core.money import to_money
+
+            price = to_money(raw.get("unit_price", 0))
+            if price < 0:
+                raise ValueError
         except (TypeError, ValueError):
             raise AppError("errors.invalid_devis_item", status_code=400, code="invalid_devis_item") from None
         tooth = raw.get("tooth")

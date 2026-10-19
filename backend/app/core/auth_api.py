@@ -7,7 +7,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session as OrmSession
 
 from app.core.audit import log_action
-from app.core.auth import COOKIE_NAME, get_client_ip, get_current_user, purge_expired_sessions
+from app.core.auth import COOKIE_NAME, get_client_ip, get_current_user, purge_expired_sessions, require_owner
 from app.core.config import get_settings
 from app.core.dates import now_tz
 from app.core.db import get_db
@@ -112,5 +112,5 @@ def list_users(user: User = Depends(get_current_user), db: OrmSession = Depends(
 
 
 @router.get("/users/count")
-def users_count(db: OrmSession = Depends(get_db)):
+def users_count(user: User = Depends(require_owner), db: OrmSession = Depends(get_db)):
     return {"count": db.execute(select(func.count(User.id))).scalar() or 0}

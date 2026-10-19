@@ -38,8 +38,8 @@ class ActCreate(BaseModel):
     tooth: int | None = None
     act_label: str
     act_code: str = ""
-    coefficient: float = 0
-    fee: float = 0
+    coefficient: str | int | float = "0"
+    fee: str | int | float = "0"
 
 
 class ActUpdate(BaseModel):
@@ -47,8 +47,8 @@ class ActUpdate(BaseModel):
     tooth: int | None = None
     act_label: str | None = None
     act_code: str | None = None
-    coefficient: float | None = None
-    fee: float | None = None
+    coefficient: str | int | float | None = None
+    fee: str | int | float | None = None
     model_config = {"extra": "forbid"}
 
 

@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as OrmSession
 
 from app.core.audit import log_action
@@ -147,6 +148,11 @@ def update_patient(
             changed.append(key)
     patient.updated_at = now_tz()
     if changed:
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            raise AppError("errors.patient_exists", status_code=400, code="patient_exists") from None
         log_action(
             db,
             actor_id=user.id,

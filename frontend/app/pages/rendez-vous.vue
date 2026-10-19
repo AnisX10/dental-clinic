@@ -117,6 +117,62 @@ async function create() {
   }
 }
 
+const busyId = ref<number | null>(null)
+const confirmCancel = ref<Appt | null>(null)
+
+const NEXT: Record<string, { key: string, to: string }[]> = {
+  a_venir: [
+    { key: "action.arrive", to: "arrive" },
+    { key: "action.en_cours", to: "en_cours" },
+    { key: "action.termine", to: "termine" },
+  ],
+  arrive: [
+    { key: "action.en_cours", to: "en_cours" },
+    { key: "action.termine", to: "termine" },
+    { key: "action.absent", to: "__absent" },
+  ],
+  en_cours: [
+    { key: "action.termine", to: "termine" },
+    { key: "action.absent", to: "__absent" },
+  ],
+  termine: [],
+}
+
+async function setStatus(appt: Appt, to: string) {
+  busyId.value = appt.id
+  try {
+    if (to === "__absent") {
+      await api.post(`/agenda/appointments/${appt.id}/absent`)
+    }
+    else {
+      await api.post(`/agenda/appointments/${appt.id}/status`, { status: to })
+    }
+    await load()
+  }
+  catch (e: any) {
+    toast.error(e?.messageKey ?? "errors.generic")
+  }
+  finally {
+    busyId.value = null
+  }
+}
+
+async function doCancel() {
+  if (!confirmCancel.value) return
+  busyId.value = confirmCancel.value.id
+  try {
+    await api.post(`/agenda/appointments/${confirmCancel.value.id}/cancel`)
+    confirmCancel.value = null
+    await load()
+  }
+  catch (e: any) {
+    toast.error(e?.messageKey ?? "errors.generic")
+  }
+  finally {
+    busyId.value = null
+  }
+}
+
 function statusKey(a: Appt): string {
   if (a.cancelled) return "status.cancelled"
   if (a.absent) return "status.absent"
@@ -130,48 +186,98 @@ function statusClass(a: Appt): string {
 </script>
 
 <template>
-  <div>
+  <div class="rendezvous-page-container">
     <div class="toolbar">
       <div>
         <h1 class="page-title">{{ t("nav.rendez_vous") }}</h1>
         <p class="page-subtitle" style="text-transform:capitalize;">{{ dates.weekdayLong(day) }}</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn btn-secondary btn-sm" aria-label="Jour précédent" @click="shiftDay(-1)">‹</button>
+        <button class="btn btn-secondary btn-sm" aria-label="Jour précédent" @click="shiftDay(-1)">
+          <AppIcon name="chevron-left" size="14" />
+        </button>
         <input v-model="day" type="date" class="input" style="width:170px;height:36px;">
-        <button class="btn btn-secondary btn-sm" aria-label="Jour suivant" @click="shiftDay(1)">›</button>
-        <button class="btn btn-primary" @click="openNew">{{ t("today.nouveau_rdv") }}</button>
+        <button class="btn btn-secondary btn-sm" aria-label="Jour suivant" @click="shiftDay(1)">
+          <AppIcon name="chevron-right" size="14" />
+        </button>
+        <button class="btn btn-primary" @click="openNew">
+          <AppIcon name="plus" size="14" />
+          <span>{{ t("today.nouveau_rdv") }}</span>
+        </button>
       </div>
     </div>
 
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
 
-    <div class="card" style="padding:0;">
-      <div v-if="loading" style="padding:8px 16px 16px;" aria-hidden="true">
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div v-if="loading" style="padding:16px;" aria-hidden="true">
         <div v-for="i in 5" :key="i" class="skeleton skeleton-row" />
       </div>
       <div v-else-if="!appts.length" class="empty-state">
-        <span class="empty-icon">▦</span>
-        {{ t("today.aucun_rdv") }}
-        <div class="empty-hint">{{ t("today.nouveau_rdv") }}</div>
+        <AppIcon name="calendar" size="36" class="muted" style="margin-bottom:8px;opacity:0.6;" />
+        <div style="font-weight:600;margin-bottom:4px;">{{ t("today.aucun_rdv") }}</div>
+        <div class="small muted">{{ t("today.nouveau_rdv") }}</div>
       </div>
       <table v-else class="table">
+        <thead>
+          <tr>
+            <th style="width:110px;">{{ t("appointment.time") }}</th>
+            <th>{{ t("appointment.patient") }}</th>
+            <th style="width:130px;">{{ t("common.status") || "Statut" }}</th>
+            <th style="text-align:end;width:240px;">{{ t("common.actions") }}</th>
+          </tr>
+        </thead>
         <tbody>
-          <tr v-for="a in appts" :key="a.id">
-            <td style="width:70px;font-variant-numeric:tabular-nums;">
-              <template v-if="a.cancelled">—</template>
-              <template v-else>{{ a.time ?? t("appointment.sans_heure") }}</template>
-              <div v-if="a.time_note" class="small muted">{{ a.time_note }}</div>
+          <tr v-for="a in appts" :key="a.id" class="row-link">
+            <td style="font-variant-numeric:tabular-nums;" @click="navigateTo(`/patients/${a.patient.id}`)">
+              <div class="time-badge">
+                <AppIcon name="clock" size="12" class="muted" />
+                <span v-if="a.cancelled">—</span>
+                <span v-else>{{ a.time ?? t("appointment.sans_heure") }}</span>
+              </div>
+              <div v-if="a.time_note" class="small muted" style="margin-top:2px;">{{ a.time_note }}</div>
             </td>
-            <td>
-              <NuxtLink :to="`/patients/${a.patient.id}`" style="font-weight:600;">
-                {{ a.patient.nom }} {{ a.patient.prenom }}
-              </NuxtLink>
-              <div class="small muted" style="font-variant-numeric:tabular-nums;">{{ a.patient.telephone }}</div>
-              <div v-if="a.motif" class="small muted">{{ a.motif }}</div>
+            <td @click="navigateTo(`/patients/${a.patient.id}`)">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div class="patient-table-avatar">
+                  {{ ((a.patient.prenom?.[0] || '') + (a.patient.nom?.[0] || '')).toUpperCase() }}
+                </div>
+                <div>
+                  <div style="font-weight:650;color:var(--color-text,#0f172a);">
+                    {{ a.patient.nom }} {{ a.patient.prenom }}
+                  </div>
+                  <div class="small muted" style="font-variant-numeric:tabular-nums;">
+                    {{ a.patient.telephone }}
+                    <span v-if="a.motif"> · {{ a.motif }}</span>
+                  </div>
+                </div>
+              </div>
             </td>
-            <td style="width:110px;">
+            <td @click="navigateTo(`/patients/${a.patient.id}`)">
               <span :class="statusClass(a)">{{ t(statusKey(a)) }}</span>
+            </td>
+            <td style="text-align:end;" @click.stop>
+              <div style="display:inline-flex;gap:4px;align-items:center;justify-content:flex-end;">
+                <button
+                  v-for="n in NEXT[a.status] ?? []"
+                  :key="n.to"
+                  class="btn btn-secondary btn-sm"
+                  :disabled="busyId === a.id"
+                  @click.stop="setStatus(a, n.to)"
+                >
+                  {{ t(n.key) }}
+                </button>
+                <button
+                  v-if="!a.cancelled && a.status === 'a_venir'"
+                  class="btn btn-text btn-sm"
+                  style="color:var(--color-danger,#ef4444);padding:4px 8px;"
+                  :disabled="busyId === a.id"
+                  :title="t('action.cancel_rdv')"
+                  @click.stop="confirmCancel = a"
+                >
+                  ✕
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -234,5 +340,60 @@ function statusClass(a: Appt): string {
           <button class="btn btn-primary" :disabled="saving" @click="create">{{ t("common.save") }}</button>
         </div>
     </AppDialog>
+
+    <!-- Confirm cancellation dialog -->
+    <AppDialog
+      :open="!!confirmCancel"
+      :title="t('action.cancel_rdv')"
+      @close="confirmCancel = null"
+    >
+      <p style="margin-bottom:16px;">
+        {{ t("action.confirm_cancel") }}
+      </p>
+      <div class="dialog-actions">
+        <button class="btn btn-secondary" @click="confirmCancel = null">
+          {{ t("common.cancel") }}
+        </button>
+        <button class="btn btn-danger" :disabled="busyId !== null" @click="doCancel">
+          {{ t("action.cancel_rdv") }}
+        </button>
+      </div>
+    </AppDialog>
   </div>
 </template>
+
+<style scoped>
+.rendezvous-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.time-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--color-text, #0f172a);
+  background: var(--color-canvas, #f8fafc);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-subtle, #edf2f7);
+}
+
+.patient-table-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary-soft, #eef2ff);
+  color: var(--color-primary, #0040dc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--color-primary, #0040dc) 15%, transparent);
+}
+</style>

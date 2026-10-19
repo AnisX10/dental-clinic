@@ -151,6 +151,8 @@ def mark_absent(db: OrmSession, appointment: Appointment, *, actor_id: int | Non
 def cancel(db: OrmSession, appointment: Appointment, *, actor_id: int | None, reason: str = "") -> None:
     if appointment.cancelled_at is not None:
         return
+    if appointment.status == "termine":
+        raise AppError("errors.appointment_already_completed", status_code=400, code="already_completed")
     old = appointment.status
     appointment.cancelled_at = now_tz()
     appointment.updated_at = now_tz()

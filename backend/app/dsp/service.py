@@ -40,9 +40,12 @@ def _parse_date(value, *, field_key: str) -> date:
         raise AppError(field_key, status_code=400, code="invalid_date") from None
 
 
-def _dec(value) -> float:
+def _dec(value) -> Decimal:
     try:
-        return max(0.0, float(value or 0))
+        from app.core.money import to_money
+
+        val = to_money(value if value not in (None, "") else 0)
+        return max(Decimal("0.00"), val)
     except (TypeError, ValueError):
         raise AppError("errors.invalid_amount", status_code=400, code="invalid_amount") from None
 

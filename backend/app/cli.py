@@ -107,7 +107,11 @@ def _restore(backup_path: Path, *, assume_yes: bool) -> int:
         pg_restore,
         "--clean",
         "--if-exists",
-        "--dbname=" + url.render_as_string(hide_password=False),
+        # Bare database name: libpq must not receive the SQLAlchemy driver
+        # scheme (postgresql+psycopg://...) — with the driver suffix it can
+        # silently connect elsewhere; host/port/user/password come from the
+        # PG* environment below.
+        "--dbname=" + (url.database or ""),
         str(backup_path),
     ]
     env = {

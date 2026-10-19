@@ -17,7 +17,7 @@ class DevisItemIn(BaseModel):
     label: str
     tooth: int | None = None
     quantity: int = 1
-    unit_price: float = 0
+    unit_price: str | int | float = "0"
 
 
 class DevisCreate(BaseModel):

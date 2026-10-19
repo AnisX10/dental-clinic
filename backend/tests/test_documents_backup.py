@@ -151,7 +151,7 @@ def test_backup_restore_round_trip(owner_client):
     from app.backup.service import _pg_dump_path
     from app.core.db import get_engine
 
-    url = make_url(get_engine().url)
+    url = make_url(get_engine().url).set(drivername="postgresql")
     scratch_db = "clinic_restore_test"
     admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:

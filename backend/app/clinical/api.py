@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session as OrmSession
 
 from app.clinical import service
 from app.core.audit import log_action
-from app.core.auth import get_client_ip, get_current_user, require_owner
+from app.core.auth import get_client_ip, get_current_user, require_dentist, require_owner
 from app.core.db import get_db
 from app.core.errors import AppError
 from app.core.models import TreatmentCatalogItem, User
@@ -41,6 +41,7 @@ def list_notes(
     user: User = Depends(get_current_user),
     db: OrmSession = Depends(get_db),
 ):
+    service.get_patient_or_404(db, patient_id)
     rows = service.notes_history(db, patient_id)
     return {"notes": [service.serialize_note(n) for n in rows]}
 
@@ -51,6 +52,7 @@ def latest_note(
     user: User = Depends(get_current_user),
     db: OrmSession = Depends(get_db),
 ):
+    service.get_patient_or_404(db, patient_id)
     note = service.latest_note(db, patient_id)
     return {"note": service.serialize_note(note) if note else None}
 
@@ -59,7 +61,7 @@ def latest_note(
 def create_note(
     payload: NoteCreate,
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_dentist),
     db: OrmSession = Depends(get_db),
 ):
     data = service.validate_note_input(
@@ -86,7 +88,7 @@ def update_note(
     note_id: int,
     payload: NoteUpdate,
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_dentist),
     db: OrmSession = Depends(get_db),
 ):
     note = service.get_note_or_404(db, note_id)
@@ -245,15 +247,15 @@ def list_patient_treatments(
     user: User = Depends(get_current_user),
     db: OrmSession = Depends(get_db),
 ):
-    rows = service.patient_treatments(db, patient_id)
-    return {"treatments": [service.serialize_treatment(t) for t in rows]}
+    service.get_patient_or_404(db, patient_id)
+    return {"treatments": [service.serialize_treatment(t) for t in service.patient_treatments(db, patient_id)]}
 
 
 @router.post("/treatments", status_code=201)
 def add_treatment(
     payload: TreatmentCreate,
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_dentist),
     db: OrmSession = Depends(get_db),
 ):
     treatment = service.add_patient_treatment(
@@ -290,6 +292,7 @@ def get_odontogram(
     user: User = Depends(get_current_user),
     db: OrmSession = Depends(get_db),
 ):
+    service.get_patient_or_404(db, patient_id)
     return {
         "conditions": service.tooth_conditions(db, patient_id),
         "treatments_by_tooth": service.treatments_by_tooth(db, patient_id),
@@ -308,9 +311,8 @@ def get_tooth_history(
     user: User = Depends(get_current_user),
     db: OrmSession = Depends(get_db),
 ):
+    service.get_patient_or_404(db, patient_id)
     rows = service.tooth_history(db, patient_id)
-    if not rows:
-        service.get_patient_or_404(db, patient_id)  # 404 on unknown patient
     actor_ids = [r.changed_by for r in rows if r.changed_by]
     actors = (
         db.execute(select(User).where(User.id.in_(actor_ids))).scalars().all() if actor_ids else []
@@ -328,7 +330,7 @@ def set_tooth_condition(
     patient_id: int,
     payload: ToothConditionIn,
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_dentist),
     db: OrmSession = Depends(get_db),
 ):
     result = service.set_tooth_condition(

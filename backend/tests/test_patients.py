@@ -162,3 +162,18 @@ def test_medical_profile_update(owner_client, users):
     # Persisted
     refetched = owner_client.get(f"/api/patients/{patient['id']}").json()["patient"]["medical"]
     assert refetched["diabete"] is True
+
+
+def test_update_duplicate_patient_returns_400(owner_client, users):
+    _create(owner_client, nom="Benali", prenom="Ahmed", telephone="0661112233")
+    p2 = _create(owner_client, nom="Hamdi", prenom="Fatima", telephone="0770445566").json()["patient"]
+    # Attempt to update p2 to match p1's identity
+    resp = owner_client.put(
+        f"/api/patients/{p2['id']}",
+        json={"nom": "Benali", "prenom": "Ahmed", "telephone": "0661112233"},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "patient_exists"
+    # Ensure p2 was not modified in the database
+    refetched = owner_client.get(f"/api/patients/{p2['id']}").json()["patient"]
+    assert refetched["nom"] == "Hamdi"

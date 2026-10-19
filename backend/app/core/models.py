@@ -306,7 +306,10 @@ class PatientTreatment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now, index=True)
 
     __table_args__ = (
-        CheckConstraint("tooth IS NULL OR (tooth BETWEEN 11 AND 48)", name="ck_treatment_tooth"),
+        CheckConstraint(
+            "tooth IS NULL OR (tooth BETWEEN 11 AND 48) OR (tooth BETWEEN 51 AND 85)",
+            name="ck_treatment_tooth",
+        ),
         CheckConstraint("price >= 0", name="ck_treatment_price"),
     )
 

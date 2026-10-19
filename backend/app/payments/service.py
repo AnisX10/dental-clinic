@@ -125,7 +125,7 @@ def daily_revenue(db: OrmSession, day: date) -> dict:
             Payment.created_at >= start, Payment.created_at < end
         )
     ).one()
-    return {"recettes": serialize_amount(row[0]), "nombre_paiements": int(row[1])}
+    return {"recettes_du_jour": serialize_amount(row[0]), "nombre_paiements": int(row[1])}
 
 
 def payments_for_day(db: OrmSession, day: date, limit: int = 200) -> list[Payment]:

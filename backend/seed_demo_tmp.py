@@ -7,13 +7,14 @@ appointments across statuses, lab work with invoices, stock ledger entries.
 Run: CLINIC_DATABASE_URL=... python seed_demo_tmp.py
 Only fills if the database has no patients yet (idempotent guard).
 """
-from decimal import Decimal
 import random
+import secrets
 from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 
 from sqlalchemy import select
 
-from app.core.db import get_session_factory
+from app.core.db import get_engine, get_session_factory
 from app.core.models import (
     Appointment,
     AppointmentEvent,
@@ -34,7 +35,6 @@ from app.core.models import (
     User,
 )
 from app.core.services import create_user, next_patient_code
-from app.core.db import get_engine
 
 random.seed(20261008)
 
@@ -148,7 +148,7 @@ def proto_tooth_from_treatment(tooth: int, catalog: str) -> str | None:
 
 
 def main() -> None:
-    engine = get_engine()
+    get_engine()
     factory = get_session_factory()
     with factory() as db:
         n = db.scalar(select(Patient.id).limit(1))
@@ -156,8 +156,12 @@ def main() -> None:
             print("already seeded — skipping")
             return
 
-        dr = create_user(db, username="drbenali", password="Dr#Pass2026", full_name="Dr. Benali Amine", role="dentiste", is_owner=True)
-        sec = create_user(db, username="sarah", password="Secu2026!ok", full_name="Sarah Mansouri", role="reception")
+        # Demo credentials are generated per run — the repo must not ship
+        # known passwords (they are printed exactly once below).
+        dr_pwd = "Dr-" + secrets.token_urlsafe(9)
+        sec_pwd = "Re-" + secrets.token_urlsafe(9)
+        dr = create_user(db, username="drbenali", password=dr_pwd, full_name="Dr. Benali Amine", role="dentiste", is_owner=True)
+        sec = create_user(db, username="sarah", password=sec_pwd, full_name="Sarah Mansouri", role="reception")
         dr_id, sec_id = dr.id, sec.id
 
         st = db.get(ClinicSettings, 1)
@@ -168,7 +172,12 @@ def main() -> None:
             st.phone = "023 45 67 89"
             st.header_note = "Assurance maladies professionnelles acceptée"
 
+        # Merge by name: works whether the default catalog was already
+        # seeded (cli.py seed-catalog) or the table is still empty.
         for name, cat, price in CATALOG:
+            exists = db.scalar(select(TreatmentCatalogItem.id).where(TreatmentCatalogItem.name == name))
+            if exists is not None:
+                continue
             db.add(TreatmentCatalogItem(name=name, category=cat, default_price=price, is_active=cat != "esthetique"))
         db.flush()
 
@@ -185,7 +194,7 @@ def main() -> None:
             db.add(item)
             items[name] = item
         db.flush()
-        for name, item in items.items():
+        for _name, item in items.items():
             q = item.stock_quantity
             db.add(StockMovement(item_id=item.id, delta=q, reason="initial", note="Stock initial",
                                  created_by=dr_id, created_at=datetime.now() - timedelta(days=3)))
@@ -218,7 +227,7 @@ def main() -> None:
                         wilaya=wil, created_at=created, updated_at=created)
             db.add(p)
             db.flush()
-            old = db.get(User, dr.id)  # refresh
+            db.get(User, dr.id)  # refresh
             prof = MedicalProfile(patient_id=p.id, **{k: True for k in flags}, autre=(
                 "Allergie: pénicilline" if flags.get("allergies") else ""))
             db.add(prof)
@@ -230,7 +239,7 @@ def main() -> None:
 
             # treatments: older patients accumulated more
             n_treat = max(1, days // 60 + random.choice((0, 1)))
-            for t in range(n_treat):
+            for _t in range(n_treat):
                 pick_from = PERIODIC if random.random() < .55 else (SOINS if random.random() < .8 else PROSTH)
                 cname = random.choice(pick_from)
                 cat = db.scalar(select(TreatmentCatalogItem).where(TreatmentCatalogItem.name == cname))
@@ -257,7 +266,7 @@ def main() -> None:
                 ))
             # payments: sanctions against ledger — cover ~80% of accumulated cost
             spent = Decimal(0)
-            for pay_n in range(random.randint(1, max(2, days // 90 + 1))):
+            for _pay_n in range(random.randint(1, max(2, days // 90 + 1))):
                 amt = D(random.choice((2000, 3000, 4500, 5000, 10000, 15000, 20000, 28000)))
                 spent += amt
                 pay_date = created + timedelta(days=random.randint(1, max(2, days)))
@@ -316,8 +325,11 @@ def main() -> None:
 
         db.commit()
         print("Seed OK:",
-              f"{len(PATIENTS)} patients, {len(CATALOG)} cat. items, {len(STOCK)} stock,",
-              f"orders/invoices/payments")
+              f"{len(PATIENTS)} patients, {len(STOCK)} stock, catalog merged,",
+              "orders/invoices/payments")
+        print("DEMO LOGINS (single print):")
+        print(f"  drbenali / {dr_pwd}")
+        print(f"  sarah / {sec_pwd}")
 
 
 if __name__ == "__main__":

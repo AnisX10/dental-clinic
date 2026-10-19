@@ -22,8 +22,8 @@ FDI_PERMANENT = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
                  48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38]
 FDI_DECIDUOUS = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65,
                  85, 84, 83, 82, 81, 71, 72, 73, 74, 75]
-# Treatments only apply to permanent teeth (kept for backward compatibility).
-FDI_TEETH = FDI_PERMANENT
+# Treatments accept both permanent and deciduous (51..85) teeth.
+FDI_TEETH = FDI_PERMANENT + FDI_DECIDUOUS
 
 # Odontogram conditions. 'sain' is a reset command, never stored: a healthy
 # tooth has no row. Carie/obturation target one of the five surfaces; the other
@@ -378,8 +378,9 @@ def _upsert_tooth_row(
 def set_tooth_condition(
     db: OrmSession, *, patient_id: int, tooth: int, condition: str, surface: str, actor_id: int | None
 ) -> dict:
-    """Apply a condition change. 'sain' clears the tooth; whole-tooth conditions
-    replace any surface marks on that tooth."""
+    """Apply a condition change. 'sain' clears the tooth; 'couronne' coexists
+    with surface marks (a crowned tooth may still carry carie/obturation
+    records); other whole-tooth conditions replace any surface marks."""
     get_patient_or_404(db, patient_id)
     tooth = validate_odontogram_tooth(tooth)
     condition = (condition or "").strip().lower()
@@ -424,13 +425,16 @@ def set_tooth_condition(
 
     if surface:
         raise AppError("errors.surface_not_allowed", status_code=400, code="surface_not_allowed")
-    db.execute(
-        delete(ToothState).where(
-            ToothState.patient_id == patient_id,
-            ToothState.tooth == tooth,
-            ToothState.surface != "",
+    if condition != "couronne":
+        # Only non-couronne whole-tooth states wipe surface marks; a crowned
+        # tooth keeps its carie/obturation records alongside the restoration.
+        db.execute(
+            delete(ToothState).where(
+                ToothState.patient_id == patient_id,
+                ToothState.tooth == tooth,
+                ToothState.surface != "",
+            )
         )
-    )
     _upsert_tooth_row(
         db, patient_id=patient_id, tooth=tooth, surface="", state=condition, actor_id=actor_id
     )

@@ -14,8 +14,8 @@ internet is required** for normal clinic work.
 - This project folder copied onto it (e.g. `C:\clinic`).
 - Python **3.11** installed (3.12+ is not supported by the bundled
   PostgreSQL launcher).
-- Node.js is only needed if you rebuild the frontend; the repository ships
-  with a ready-made build in `frontend/.output/public`.
+- Node.js is only needed to build the frontend; generate the build once with
+  `npm run generate` (section 5) before the first deployment.
 
 ---
 
@@ -39,7 +39,7 @@ You will be prompted for a password for each. Keep them private — these are
 the only ways into patient data.
 
 The treatment catalogue (21 entries, 7 categories) seeds itself on first
-start. The database (PostgreSQL 16) is bundled and initializes itself in
+start. The database (PostgreSQL 16, bundled launcher) initializes itself in
 `data\pgdata` — nothing to install.
 
 ---
@@ -70,20 +70,26 @@ Close the window to stop the app. The database survives restarts.
   tables are included automatically — nothing extra to configure.
 - Retention: last 14 automatic + 5 manual backups; the most recent backup
   is never deleted.
-- Restore drill (recommended once before go-live):
+- Restore drill (recommended once before go-live, then once a year):
 
 ```bat
-:: stop the app, then
-.venv\Scripts\python backend\app\cli.py restore --backup data\backups\<file>.dump
+:: 1) stop the app (close the start.bat window)
+:: 2) copy the dump you want to test with, e.g.
+::    copy data\backups\clinic_manual_SOMEDAY.dump data\backups\drill.dump
+:: 3) restore
+.venv\Scripts\python backend\app\cli.py restore --backup data\backups\drill.dump --yes
+:: 4) start the app again and verify:
+::    - a real or demo user can log in (sessions are reset by the restore)
+::    - patients exist and patient_nr spot-check matches the day of the backup
+::    - Paramètres shows the backup time recorded before the restore
+:: 5) delete drill.dump after the drill passes
 ```
 
 Copy the whole `data\backups` folder to a USB drive regularly.
 
 ---
 
-## 5. Updating the frontend (optional)
-
-Only if the UI was modified:
+## 5. Building the frontend (required before first deployment)
 
 ```bat
 cd frontend
@@ -91,13 +97,18 @@ npm install
 npm run generate
 ```
 
-Then restart the server; it serves the new build automatically.
+The build lands in `frontend\.output\public`; restart the server and it
+serves the new build automatically. Re-run both commands only when the UI
+was modified.
 
 ---
 
 ## 6. Pre-launch checklist
 
 - [ ] Unique passwords set; demo accounts removed or renamed
+- [ ] Do **not** run the demo seeder (`backend\seed_demo_tmp.py`) against the
+      production database — it creates demo patients and generates one-time
+      random logins printed only once
 - [ ] `create-user` for every real staff member, owner flag only for the dentist
 - [ ] Clinic name/doctor filled in **Paramètres**
 - [ ] Backup hour confirmed, one manual backup run, restore drill done

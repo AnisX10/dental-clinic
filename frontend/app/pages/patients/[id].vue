@@ -7,6 +7,7 @@
 import type { ToothCondition } from "~/utils/toothShapes"
 
 const route = useRoute()
+const router = useRouter()
 const patientId = Number(route.params.id)
 const { t } = useI18n()
 const api = useApi()
@@ -22,6 +23,17 @@ const selectedTooth = ref<number | null>(null)
 const odontoBusy = ref(false)
 const dentition = ref<"permanente" | "temporaire">("permanente")
 
+interface ToothHistoryRow {
+  id: number
+  tooth: number
+  surface: string
+  condition: string
+  action: string
+  changed_at: string
+  changed_by: string | null
+}
+const toothHistory = ref<ToothHistoryRow[]>([])
+
 interface Patient {
   id: number, code: string, nom: string, prenom: string, telephone: string,
   telephone2: string, date_naissance: string, age_years: number | null,
@@ -36,6 +48,8 @@ interface Ledger {
   payments: { id: number, amount: string, note: string, created_at: string, created_by_name: string }[],
 }
 interface DocRow { id: number, doc_type: string, title: string, created_at: string }
+
+interface AttachmentRow { id: number, original_name: string, mime_type: string, size_bytes: number, created_at: string }
 interface LabOrderRow {
   id: number
   lab: { id: number, name: string }
@@ -67,6 +81,11 @@ const notes = ref<Note[]>([])
 const treatments = ref<Treatment[]>([])
 const ledger = ref<Ledger | null>(null)
 const docs = ref<DocRow[]>([])
+const attachments = ref<AttachmentRow[]>([])
+const uploading = ref(false)
+const deletingAttachmentId = ref<number | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const ACCEPTED_FILE_TYPES = "image/jpeg,image/png,image/webp,application/pdf"
 const labOrders = ref<LabOrderRow[]>([])
 
 const tabLoaded = ref<Record<string, boolean>>({})
@@ -118,6 +137,8 @@ async function loadTab(name: string) {
     if (name === "documents" && !tabLoaded.value.documents) {
       const d = await api.get<{ documents: DocRow[] }>(`/documents/patients/${patientId}`)
       docs.value = d.documents
+      const att = await api.get<{ attachments: AttachmentRow[] }>(`/patients/${patientId}/attachments`)
+      attachments.value = att.attachments
       tabLoaded.value.documents = true
     }
   }
@@ -126,6 +147,63 @@ async function loadTab(name: string) {
   }
 }
 if (patient.value) await loadTab(tab.value)
+
+async function loadAttachments() {
+  const att = await api.get<{ attachments: AttachmentRow[] }>(`/patients/${patientId}/attachments`)
+  attachments.value = att.attachments
+}
+
+function onAttachmentPicked(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ""
+  if (!file) return
+  void uploadAttachment(file)
+}
+
+function onClickFileLabel() {
+  fileInputRef.value?.click()
+}
+
+async function uploadAttachment(file: File) {
+  if (uploading.value) return
+  uploading.value = true
+  errorMsg.value = ""
+  try {
+    await api.upload<{ attachment: AttachmentRow }>(`/patients/${patientId}/attachments`, file)
+    toast.success("documents.att_upload")
+    await loadAttachments()
+  }
+  catch (e: any) {
+    errorMsg.value = e?.messageKey ?? "errors.generic"
+  }
+  finally {
+    uploading.value = false
+  }
+}
+
+async function deleteAttachment(a: AttachmentRow) {
+  if (deletingAttachmentId.value !== null) return
+  deletingAttachmentId.value = a.id
+  errorMsg.value = ""
+  try {
+    await api.del(`/patients/${patientId}/attachments/${a.id}`)
+    toast.success("documents.att_deleted")
+    attachments.value = attachments.value.filter(x => x.id !== a.id)
+  }
+  catch (e: any) {
+    toast.error(e?.messageKey ?? "errors.generic")
+  }
+  finally {
+    deletingAttachmentId.value = null
+  }
+}
+
+function fmtFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+}
 
 function flash(messageKey: string) {
   toast.success(messageKey)
@@ -140,17 +218,6 @@ async function loadOdontogram() {
   for (const [key, list] of Object.entries(og.treatments_by_tooth ?? {})) map[Number(key)] = list
   odontoTreatments.value = map
 }
-
-interface ToothHistoryRow {
-  id: number
-  tooth: number
-  surface: string
-  condition: string
-  action: string
-  changed_at: string
-  changed_by: string | null
-}
-const toothHistory = ref<ToothHistoryRow[]>([])
 
 async function loadToothHistory() {
   try {
@@ -378,25 +445,79 @@ async function saveEdit() {
   }
 }
 
+const medicalAlerts = computed(() => {
+  if (!patient.value?.medical) return []
+  const alerts: string[] = []
+  const med = patient.value.medical
+  const keys = ["allergies", "anticoagulants", "maladie_cardiaque", "diabete", "grossesse", "asthme", "epilepsie", "hypertension"]
+  for (const k of keys) {
+    if (med[k]) alerts.push(t(`medical.${k}`))
+  }
+  return alerts
+})
+
+function openTreatmentForTooth(tooth: number) {
+  treatmentForm.value.tooth = String(tooth)
+  openTreatment()
+}
+
 const tabs = [
-  { key: "resume", label: "patient_tabs.resume" },
-  { key: "medical", label: "patient_tabs.medical" },
-  { key: "odontogramme", label: "patient_tabs.odontogramme" },
-  { key: "traitements", label: "patient_tabs.traitements" },
-  { key: "paiements", label: "patient_tabs.paiements" },
-  { key: "documents", label: "patient_tabs.documents" },
+  { key: "resume", label: "patient_tabs.resume", icon: "dashboard" },
+  { key: "medical", label: "patient_tabs.medical", icon: "shield-check" },
+  { key: "odontogramme", label: "patient_tabs.odontogramme", icon: "tooth" },
+  { key: "traitements", label: "patient_tabs.traitements", icon: "treatments" },
+  { key: "paiements", label: "patient_tabs.paiements", icon: "wallet" },
+  { key: "documents", label: "patient_tabs.documents", icon: "documents" },
 ] as const
 
 function switchTab(key: typeof tab.value) {
   tab.value = key
+  const q: Record<string, unknown> = { ...route.query }
+  if (key === "resume") delete q.tab
+  else q.tab = key
+  router.replace({ query: q })
   loadTab(key)
 }
 
 const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
+
+// ---- Quick appointment booking from patient page --------------------------
+const showRdv = ref(false)
+const rdvForm = ref({ date: dates.todayIso(), time: "", time_note: "", motif: "" })
+const rdvSaving = ref(false)
+const rdvError = ref("")
+
+function openRdvModal() {
+  rdvForm.value = { date: dates.todayIso(), time: "", time_note: "", motif: "" }
+  rdvError.value = ""
+  showRdv.value = true
+}
+
+async function saveRdv() {
+  rdvSaving.value = true
+  rdvError.value = ""
+  try {
+    await api.post("/agenda/appointments", {
+      patient_id: patientId,
+      date: rdvForm.value.date,
+      time: rdvForm.value.time || null,
+      time_note: rdvForm.value.time_note,
+      motif: rdvForm.value.motif,
+    })
+    showRdv.value = false
+    toast.success("common.save")
+  }
+  catch (e: any) {
+    rdvError.value = e?.messageKey ?? "errors.generic"
+  }
+  finally {
+    rdvSaving.value = false
+  }
+}
 </script>
 
 <template>
-  <div>
+  <div class="patient-page-container">
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
 
     <div v-if="loading" style="max-width:840px;" aria-hidden="true">
@@ -406,42 +527,121 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
     </div>
 
     <template v-else-if="patient">
-      <div class="toolbar">
-        <div>
-          <h1 class="page-title">{{ patient.nom }} {{ patient.prenom }}</h1>
-          <p class="page-subtitle" style="font-variant-numeric:tabular-nums;">
-            {{ patient.telephone }}
-            <span v-if="patient.telephone2"> · {{ patient.telephone2 }}</span>
-            <span v-if="patient.age_years !== null"> · {{ patient.age_years }} {{ t("patients.ans") }}</span>
-            <span v-if="patient.wilaya"> · {{ patient.wilaya }}</span>
-          </p>
+      <!-- Modern Patient Hero Card (DentalPin Inspired) -->
+      <div class="patient-hero-card card">
+        <div class="patient-hero-top">
+          <NuxtLink to="/patients" class="hero-back-link">
+            <AppIcon name="chevron-left" size="16" />
+            <span>{{ t("common.back") }}</span>
+          </NuxtLink>
+          <span class="patient-code-badge">Dossier #{{ patient.code }}</span>
         </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-secondary btn-sm" @click="openEdit">{{ t("common.edit") }}</button>
+
+        <div class="patient-hero-body">
+          <div class="patient-avatar-box">
+            {{ ((patient.prenom?.[0] || '') + (patient.nom?.[0] || '')).toUpperCase() }}
+          </div>
+
+          <div class="patient-identity-box">
+            <div class="patient-name-row">
+              <h1 class="patient-full-name">{{ patient.nom }} {{ patient.prenom }}</h1>
+              <button class="btn btn-secondary btn-sm" @click="openEdit" :title="t('common.edit')">
+                <AppIcon name="edit" size="14" />
+                <span>{{ t("common.edit") }}</span>
+              </button>
+            </div>
+
+            <div class="patient-chips-row">
+              <a :href="'tel:' + patient.telephone" class="patient-chip patient-chip-link" :title="patient.telephone">
+                <AppIcon name="phone" size="13" />
+                <span>{{ patient.telephone }}</span>
+              </a>
+              <span v-if="patient.telephone2" class="patient-chip">
+                <AppIcon name="phone" size="13" />
+                <span>{{ patient.telephone2 }}</span>
+              </span>
+              <span v-if="patient.age_years !== null" class="patient-chip">
+                <AppIcon name="calendar" size="13" />
+                <span>{{ patient.age_years }} {{ t("patients.ans") }}</span>
+                <span v-if="patient.date_naissance" class="muted">({{ dates.fmtDate(patient.date_naissance) }})</span>
+              </span>
+              <span v-if="patient.wilaya" class="patient-chip">
+                <AppIcon name="home" size="13" />
+                <span>{{ patient.wilaya }}</span>
+              </span>
+            </div>
+
+            <!-- Medical Alerts Warning Banner -->
+            <div v-if="medicalAlerts.length" class="patient-medical-alert-chip">
+              <AppIcon name="alert-triangle" size="14" class="alert-icon" />
+              <span class="alert-label">Alerte médicale :</span>
+              <span class="alert-content">{{ medicalAlerts.join(" · ") }}</span>
+            </div>
+          </div>
+
+          <!-- Financial Balance Strip -->
+          <div v-if="ledger" class="patient-ledger-pill">
+            <div class="ledger-stat">
+              <span class="stat-label">{{ t("resume.total") }}</span>
+              <span class="stat-val">{{ money.fmt(ledger.total) }}</span>
+            </div>
+            <div class="ledger-stat-divider" />
+            <div class="ledger-stat">
+              <span class="stat-label">{{ t("resume.paye") }}</span>
+              <span class="stat-val stat-success">{{ money.fmt(ledger.paye) }}</span>
+            </div>
+            <div class="ledger-stat-divider" />
+            <div class="ledger-stat">
+              <span class="stat-label">{{ t("resume.reste") }}</span>
+              <span class="stat-val" :class="{ 'stat-danger': Number(ledger.reste) > 0 }">
+                {{ money.fmt(ledger.reste) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Action Bar -->
+        <div class="patient-actions-bar">
+          <div class="action-buttons-group">
+            <button class="btn btn-primary btn-sm" @click="showNote = true">
+              <AppIcon name="plus" size="14" />
+              <span>{{ t("resume.nouvelle_note") }}</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" @click="openTreatment">
+              <AppIcon name="treatments" size="14" />
+              <span>{{ t("resume.ajouter_traitement") }}</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" @click="switchTab('odontogramme')">
+              <AppIcon name="tooth" size="14" />
+              <span>{{ t("resume.odontogramme") }}</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" @click="openRdvModal">
+              <AppIcon name="calendar" size="14" />
+              <span>{{ t("today.nouveau_rdv") }}</span>
+            </button>
+          </div>
+
+          <button v-if="hasReste" class="btn btn-primary btn-sm btn-encaissement" @click="openPayment">
+            <AppIcon name="wallet" size="14" />
+            <span>{{ t("payments.encaisser") }}</span>
+          </button>
         </div>
       </div>
 
-      <div class="toolbar" style="margin-bottom:16px;">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-primary" @click="showNote = true">{{ t("resume.nouvelle_note") }}</button>
-          <button class="btn btn-secondary" @click="openTreatment">{{ t("resume.ajouter_traitement") }}</button>
-          <button class="btn btn-secondary" @click="switchTab('odontogramme')">{{ t("resume.odontogramme") }}</button>
+      <!-- Modern Segmented Tabs -->
+      <div class="segmented-tabs-wrapper">
+        <div class="segmented-tabs">
+          <button
+            v-for="tb in tabs"
+            :key="tb.key"
+            class="segmented-tab-btn"
+            :class="{ active: tab === tb.key }"
+            @click="switchTab(tb.key)"
+          >
+            <AppIcon :name="tb.icon" size="15" />
+            <span>{{ t(tb.label) }}</span>
+          </button>
         </div>
-        <button v-if="hasReste" class="btn btn-primary" @click="openPayment">
-          {{ t("payments.encaisser") }}
-        </button>
-      </div>
-
-      <div class="tabs">
-        <button
-          v-for="tb in tabs"
-          :key="tb.key"
-          class="tab"
-          :class="{ active: tab === tb.key }"
-          @click="switchTab(tb.key)"
-        >
-          {{ t(tb.label) }}
-        </button>
       </div>
 
       <!-- Résumé -->
@@ -588,10 +788,13 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
 
       <!-- Odontogramme -->
       <template v-if="tab === 'odontogramme'">
-        <div class="odonto-layout">
-          <div class="card" style="overflow-x:auto;">
+        <div class="odonto-split-layout">
+          <div class="card odonto-chart-card" style="overflow-x:auto;">
             <div class="odonto-head">
-              <h2 class="section-title">{{ t("odontogram.title") }}</h2>
+              <div class="odonto-title-group">
+                <AppIcon name="tooth" size="20" class="odonto-title-icon" />
+                <h2 class="section-title">{{ t("odontogram.title") }}</h2>
+              </div>
               <div class="seg">
                 <button
                   type="button"
@@ -619,20 +822,34 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
               @select="onSelectTooth"
             />
           </div>
-          <OdontogramConditionPanel
-            v-if="selectedTooth"
-            :tooth="selectedTooth"
-            :conditions="conditions"
-            :treatments="toothTreatments(selectedTooth)"
-            :busy="odontoBusy"
-            @apply="applyCondition"
-            @close="selectedTooth = null"
-          />
-          <div v-else class="card empty-state">
-            <span class="empty-icon">◌</span>
-            {{ t("odontogram.hint") }}
-            <div v-if="treatments.length" class="empty-hint">
-              {{ t("odontogram.traitements_lies") }} {{ treatments.filter(x => x.tooth).length }}
+          <div class="odonto-side-pane">
+            <div v-if="selectedTooth" class="odonto-tooth-inspector">
+              <OdontogramConditionPanel
+                :tooth="selectedTooth"
+                :conditions="conditions"
+                :treatments="toothTreatments(selectedTooth)"
+                :busy="odontoBusy"
+                @apply="applyCondition"
+                @close="selectedTooth = null"
+              />
+              <div class="card" style="margin-top:12px;padding:12px;">
+                <button
+                  type="button"
+                  class="btn btn-primary btn-sm"
+                  style="width:100%;"
+                  @click="openTreatmentForTooth(selectedTooth)"
+                >
+                  <AppIcon name="plus" size="14" />
+                  <span>{{ t("treatments.ajout") }} #{{ selectedTooth }}</span>
+                </button>
+              </div>
+            </div>
+            <div v-else class="card empty-state odonto-empty-pane">
+              <AppIcon name="tooth" size="32" class="muted" style="margin-bottom:8px;opacity:0.6;" />
+              <div style="font-weight:600;margin-bottom:4px;">{{ t("odontogram.hint") }}</div>
+              <div class="small muted">
+                {{ t("odontogram.traitements_lies") }} {{ Object.values(odontoTreatments).reduce((n, l) => n + l.length, 0) }}
+              </div>
             </div>
           </div>
         </div>
@@ -714,6 +931,64 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
                 <td>{{ t(`documents.${d.doc_type}`) }}</td>
                 <td>{{ d.title }}</td>
                 <td class="small muted">{{ dates.fmtDate(d.created_at) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+            <h2 class="section-title">{{ t("documents.pieces_jointes") }}</h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input
+                id="att-file"
+                ref="fileInputRef"
+                type="file"
+                class="visually-hidden"
+                :accept="ACCEPTED_FILE_TYPES"
+                @change="onAttachmentPicked"
+              >
+              <label
+                for="att-file"
+                class="btn btn-secondary"
+                tabindex="0"
+                @keydown.enter.prevent="onClickFileLabel"
+                @keydown.space.prevent="onClickFileLabel"
+              >{{ uploading ? t("documents.saving_att") : t("documents.ajouter_piece") }}</label>
+            </div>
+          </div>
+          <p class="small muted" style="margin:0 0 12px;">{{ t("documents.att_hint") }}</p>
+          <div v-if="!attachments.length" class="empty-state">{{ t("documents.att_aucune") }}</div>
+          <table v-else class="table">
+            <thead>
+              <tr>
+                <th>{{ t("documents.nom_piece") }}</th>
+                <th class="num">{{ t("documents.att_taille") }}</th>
+                <th>{{ t("documents.date") }}</th>
+                <th style="width:1%;" />
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="a in attachments" :key="a.id">
+                <td>{{ a.original_name }}</td>
+                <td class="num small" style="font-variant-numeric:tabular-nums;">{{ fmtFileSize(a.size_bytes) }}</td>
+                <td class="small muted">{{ dates.fmtDateTime(a.created_at) }}</td>
+                <td>
+                  <div style="display:flex;gap:6px;justify-content:flex-end;">
+                    <a
+                      :href="`/api/patients/${patientId}/attachments/${a.id}/file`"
+                      target="_blank"
+                      rel="noopener"
+                      class="btn btn-text btn-sm"
+                    >{{ t("documents.att_telecharger") }}</a>
+                    <button
+                      class="btn btn-text btn-sm"
+                      style="color:var(--color-danger);"
+                      :disabled="deletingAttachmentId !== null"
+                      @click="deleteAttachment(a)"
+                    >{{ t("common.delete") }}</button>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -858,5 +1133,340 @@ const hasReste = computed(() => ledger.value && Number(ledger.value.reste) > 0)
           <button class="btn btn-primary" :disabled="editSaving" @click="saveEdit">{{ t("common.save") }}</button>
         </div>
     </AppDialog>
+
+    <!-- Appointment dialog -->
+    <AppDialog :open="showRdv" :title="t('today.nouveau_rdv')" @close="showRdv = false">
+      <div style="display:flex;gap:12px;">
+        <div class="field" style="margin-bottom:12px;flex:1;">
+          <label for="p-rdv-date">{{ t("appointment.date") }}</label>
+          <input id="p-rdv-date" v-model="rdvForm.date" type="date" class="input">
+        </div>
+        <div class="field" style="margin-bottom:12px;flex:1;">
+          <label for="p-rdv-time">{{ t("appointment.time") }} ({{ t("common.optional") }})</label>
+          <input id="p-rdv-time" v-model="rdvForm.time" type="time" class="input">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label for="p-rdv-tnote">{{ t("appointment.time") }} — texte ({{ t("common.optional") }})</label>
+        <input id="p-rdv-tnote" v-model="rdvForm.time_note" class="input" placeholder="matin, vers 10h…">
+      </div>
+      <div class="field" style="margin-bottom:16px;">
+        <label for="p-rdv-motif">{{ t("appointment.motif") }} ({{ t("common.optional") }})</label>
+        <input id="p-rdv-motif" v-model="rdvForm.motif" class="input">
+      </div>
+      <div v-if="rdvError" class="alert alert-error">{{ t(rdvError) }}</div>
+      <div class="dialog-actions">
+        <button class="btn btn-secondary" @click="showRdv = false">{{ t("common.cancel") }}</button>
+        <button class="btn btn-primary" :disabled="rdvSaving" @click="saveRdv">{{ t("common.save") }}</button>
+      </div>
+    </AppDialog>
   </div>
 </template>
+
+<style scoped>
+.patient-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Patient Hero Card */
+.patient-hero-card {
+  padding: 18px 24px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.patient-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted, #64748b);
+  transition: color 0.12s ease;
+}
+
+.hero-back-link:hover {
+  color: var(--color-primary, #0040dc);
+}
+
+.patient-code-badge {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--color-surface-muted, #f1f5f9);
+  color: var(--color-text-muted, #64748b);
+  border: 1px solid var(--color-border, #e2e8f0);
+}
+
+.patient-hero-body {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.patient-avatar-box {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  background: var(--color-primary-soft, #eef2ff);
+  color: var(--color-primary, #0040dc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--color-primary, #0040dc) 20%, transparent);
+}
+
+.patient-identity-box {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.patient-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.patient-full-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text, #0f172a);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.patient-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.patient-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--color-text-muted, #64748b);
+  background: var(--color-canvas, #f8fafc);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-subtle, #edf2f7);
+}
+
+.patient-chip-link {
+  text-decoration: none;
+  color: var(--color-text, #0f172a);
+  font-weight: 550;
+  transition: all 0.12s ease;
+}
+
+.patient-chip-link:hover {
+  border-color: var(--color-primary, #0040dc);
+  color: var(--color-primary, #0040dc);
+}
+
+.patient-medical-alert-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  padding: 4px 10px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.alert-icon {
+  flex-shrink: 0;
+}
+
+/* Ledger Balance Strip */
+.patient-ledger-pill {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--color-canvas, #f8fafc);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 10px 16px;
+}
+
+.ledger-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--color-text-muted, #64748b);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.stat-val {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text, #0f172a);
+}
+
+.stat-success {
+  color: var(--color-success, #10b981);
+}
+
+.stat-danger {
+  color: var(--color-danger, #ef4444);
+}
+
+.ledger-stat-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--color-border, #e2e8f0);
+}
+
+/* Patient Actions Bar */
+.patient-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--color-border-subtle, #f1f5f9);
+  padding-top: 14px;
+  flex-wrap: wrap;
+}
+
+.action-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-encaissement {
+  background: var(--color-primary, #0040dc);
+}
+
+/* Segmented Tabs */
+.segmented-tabs-wrapper {
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.segmented-tabs {
+  display: inline-flex;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.segmented-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--color-text-muted, #64748b);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.segmented-tab-btn:hover {
+  color: var(--color-text, #0f172a);
+  background: var(--color-canvas, #f8fafc);
+}
+
+.segmented-tab-btn.active {
+  background: var(--color-primary-soft, #eef2ff);
+  color: var(--color-primary, #0040dc);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 64, 220, 0.08);
+}
+
+/* Odontogram Split Layout */
+.odonto-split-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+  align-items: start;
+}
+
+.odonto-chart-card {
+  padding: 16px;
+}
+
+.odonto-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.odonto-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.odonto-title-icon {
+  color: var(--color-primary, #0040dc);
+}
+
+.odonto-side-pane {
+  position: sticky;
+  top: 76px;
+}
+
+.odonto-empty-pane {
+  padding: 32px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+@media (max-width: 1024px) {
+  .odonto-split-layout {
+    grid-template-columns: 1fr;
+  }
+  .odonto-side-pane {
+    position: static;
+  }
+}
+</style>
