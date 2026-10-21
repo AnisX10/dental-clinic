@@ -51,8 +51,9 @@ def _license_unlocked():
         installation_id="stub-install-0001",
     )
     stub.load = lambda: stub.state
+    if service._original_get_manager is None:
+        service._original_get_manager = service.get_manager
     original = service.get_manager
-    service._original_get_manager = original
     try:
         service.get_manager = lambda: stub
         yield

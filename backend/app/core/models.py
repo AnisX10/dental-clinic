@@ -7,7 +7,9 @@ Design notes:
 - Append-only event tables keep the history of appointments, backups, stock
   movements and sensitive actions (audit log).
 """
-from datetime import date, datetime, time
+from datetime import date, datetime
+from datetime import date as _date
+from datetime import time as _time
 from decimal import Decimal
 from typing import Optional
 
@@ -206,9 +208,9 @@ class Appointment(Base):
     patient_id: Mapped[int] = mapped_column(
         ForeignKey("patients.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    date: Mapped[_date] = mapped_column(Date, nullable=False, index=True)
     # Optional exact time; `time_note` holds free approximations like "vers 10h".
-    time: Mapped[Optional[time]] = mapped_column(Time, nullable=True)  # noqa: UP045 (SQLA py3.13 union re-eval)
+    time: Mapped[Optional[_time]] = mapped_column(Time, nullable=True)  # noqa: UP045 (SQLA py3.13 union re-eval)
     time_note: Mapped[str] = mapped_column(String(60), nullable=False, default="")
     motif: Mapped[str] = mapped_column(String(160), nullable=False, default="")
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="a_venir", index=True)

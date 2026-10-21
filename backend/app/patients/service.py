@@ -38,7 +38,7 @@ def validate_patient_input(*, nom: str, prenom: str, telephone: str, date_naissa
     if not nom or not prenom:
         raise AppError("errors.name_required", status_code=400, code="name_required")
     phone = validate_phone(telephone)
-    out = {"nom": nom, "prenom": prenom, "telephone": phone}
+    out: dict[str, str | date] = {"nom": nom, "prenom": prenom, "telephone": phone}
     bday = (date_naissance or "").strip()
     if bday:
         try:

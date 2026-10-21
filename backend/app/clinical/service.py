@@ -395,7 +395,7 @@ def set_tooth_condition(
                 raise AppError("errors.surface_required", status_code=400, code="surface_required")
             where.append(ToothState.surface == surface)
         deleted = db.execute(delete(ToothState).where(*where))
-        removed = deleted.rowcount or 0
+        removed = getattr(deleted, "rowcount", 0) or 0
         if removed:
             # Audit only when something actually changed, so empty clearings
             # don't fill the log. A whole-tooth reset purges surface marks too:
@@ -446,7 +446,7 @@ def set_tooth_condition(
     return {"tooth": tooth, "condition": condition, "surface": ""}
 
 
-def treatments_by_tooth(db: OrmSession, patient_id: int) -> dict[int, list[dict]]:
+def treatments_by_tooth(db: OrmSession, patient_id: int) -> dict[int | None, list[dict]]:
     rows = list(
         db.execute(
             select(PatientTreatment)
@@ -459,7 +459,7 @@ def treatments_by_tooth(db: OrmSession, patient_id: int) -> dict[int, list[dict]
         .scalars()
         .all()
     )
-    result: dict[int, list[dict]] = {}
+    result: dict[int | None, list[dict]] = {}
     for t in rows:
         result.setdefault(t.tooth, []).append(serialize_treatment(t))
     return result

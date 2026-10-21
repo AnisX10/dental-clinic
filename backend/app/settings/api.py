@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session as OrmSession
 from app.core.audit import log_action
 from app.core.auth import get_client_ip, get_current_user, require_owner
 from app.core.db import get_db
+from app.core.errors import AppError
 from app.core.models import User
 from app.core.money import to_money
 from app.core.services import get_settings_row
@@ -77,8 +78,6 @@ def update_settings(
     if payload.backup_hour is not None:
         hour = int(payload.backup_hour)
         if not 0 <= hour <= 23:
-            from app.core.errors import AppError
-
             raise AppError("errors.invalid_backup_hour", status_code=400, code="invalid_backup_hour")
         if hour != settings.backup_hour:
             settings.backup_hour = hour
@@ -96,8 +95,6 @@ def update_settings(
 
         caisse = payload.dsp_default_caisse.strip()
         if caisse not in CAISSES:
-            from app.core.errors import AppError
-
             raise AppError("errors.invalid_caisse", status_code=400, code="invalid_caisse")
         if caisse != settings.dsp_default_caisse:
             settings.dsp_default_caisse = caisse

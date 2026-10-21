@@ -26,7 +26,7 @@ _pgserver_db = None  # keep a reference so pgserver does not stop the server
 def _ensure_local_postgres() -> str:
     """Start/attach the bundled local PostgreSQL and return a database URL."""
     global _pgserver_db
-    import pgserver
+    import pgserver  # pyright: ignore[reportMissingImports]
 
     settings = get_settings()
     pgdata = Path(settings.data_dir) / "pgdata"
@@ -84,6 +84,8 @@ def get_engine():
 
 def get_session_factory() -> sessionmaker:
     get_engine()
+    if _SessionLocal is None:  # pragma: no cover - get_engine() always sets it
+        raise RuntimeError("session factory missing after engine bootstrap")
     return _SessionLocal
 
 

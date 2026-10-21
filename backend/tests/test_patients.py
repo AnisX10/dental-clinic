@@ -127,11 +127,13 @@ def test_dormant_patients(owner_client, users):
     fresh = _create(owner_client, nom="Nadir", prenom="Sara", telephone="0770 55 66 77").json()["patient"]
 
     # Model the 'long-ago visit' with a backdated payment.
+    from sqlalchemy import insert
+
     from app.core.db import get_engine
 
     with get_engine().begin() as conn:
         conn.execute(
-            Payment.__table__.insert().values(
+            insert(Payment).values(
                 patient_id=old["id"],
                 amount=2000,
                 note="",

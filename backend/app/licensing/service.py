@@ -11,6 +11,7 @@ import base64
 import json
 import os
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -131,3 +132,7 @@ def get_manager() -> LicenseManager:
     if _manager is None:
         _manager = LicenseManager(license_file(), installation_getter)
     return _manager
+
+
+# Test fixtures use this to restore the real getter after stubbing (conftest).
+_original_get_manager: Callable[[], LicenseManager] | None = get_manager

@@ -25,7 +25,7 @@ def real_license(monkeypatch, tmp_path):
     monkeypatch.setattr(service, "_PUBLIC_KEY_PATH", pub_path)
     monkeypatch.setenv("CLINIC_LICENSE_FILE", str(tmp_path / "license.lic"))
     monkeypatch.setattr(service, "_manager", service.LicenseManager(service.license_file(), service.installation_getter))
-    monkeypatch.setattr(service, "get_manager", service._original_get_manager)
+    monkeypatch.setattr(service, "get_manager", service._original_get_manager or service.get_manager)
 
     def _issueinstallation(**override) -> str:
         payload = {
@@ -51,6 +51,7 @@ def test_verify_bytes_valid_and_tampered(real_license):
 
     state = service.verify_bytes(content)
     assert state.active and state.reason == "ok"
+    assert state.payload is not None
     assert state.payload["clinic"] == "Clinique Sourire"
 
     tampered = content.replace("Sourire", "Sourire!", 1)

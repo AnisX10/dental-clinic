@@ -29,11 +29,13 @@ _last_run: dict = {}
 def _pg_dump_path() -> str | None:
     """Locate pg_dump binary directory: bundled with pgserver first, then standard paths, then system PATH."""
     try:
-        import pgserver
+        import pgserver  # pyright: ignore[reportMissingImports]
 
-        candidate = Path(pgserver.__file__).parent / "pginstall" / "bin"
-        if (candidate / "pg_dump.exe").is_file() or (candidate / "pg_dump").is_file():
-            return str(candidate)
+        mod_file = pgserver.__file__
+        if mod_file:
+            candidate = Path(mod_file).parent / "pginstall" / "bin"
+            if (candidate / "pg_dump.exe").is_file() or (candidate / "pg_dump").is_file():
+                return str(candidate)
     except Exception:
         pass
     from shutil import which
