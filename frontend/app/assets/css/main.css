@@ -574,10 +574,23 @@ a { color: inherit; text-decoration: none; }
 .patient-hit:hover { border-color: var(--color-primary); }
 
 /* Print stylesheet for documents */
+@page {
+  size: A4;
+  margin: 12mm 14mm;
+}
+
 @media print {
   body * { visibility: hidden; }
   .print-area, .print-area * { visibility: visible; }
-  .print-area { position: absolute; inset: 0; width: 100%; }
+  /* Keep the sheet in normal flow so multi-page documents paginate cleanly;
+     only pull it to the top-left of the page area. */
+  .print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: auto;
+  }
 }
 
 /* ------------------------------------------------------------------ *

@@ -110,6 +110,10 @@ if _dist.is_dir():
         candidate = (_dist / full_path).resolve()
         if full_path and candidate.is_file() and str(candidate).startswith(str(_dist.resolve())):
             return FileResponse(candidate)
+        # Missing files (fonts, images, assets) must 404 instead of returning the
+        # app shell — otherwise the browser tries to decode HTML as a font/SVG.
+        if full_path and "." in Path(full_path).name:
+            return JSONResponse({"error": {"code": "not_found", "message_key": "errors.not_found"}}, status_code=404)
         # SPA fallback: unknown routes render the app shell.
         index = _dist / "index.html"
         if index.is_file():

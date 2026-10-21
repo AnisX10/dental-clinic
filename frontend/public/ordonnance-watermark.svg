@@ -1,11 +1,9 @@
-<svg width="120" height="100" viewBox="62 128 124 102" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="124" height="114" viewBox="62 116 124 114" fill="none" xmlns="http://www.w3.org/2000/svg">
 <!--
-  Rendered watermark only — whatever is inside the raw template SVG watermark
-  <g opacity="0.03"> block, cropped to the art and given the intended faint
-  blue-on-white appearance. Scales freely via CSS.
+  Rendered watermark only — the two stroke paths of the raw template SVG
+  watermark, cropped to the art and given the intended faint blue appearance.
+  Scales freely via CSS. No transform: the paths already use template coords.
 -->
-<g transform="translate(-101,-127) scale(1)">
 <path d="M170.128 132.397C154.792 117.907 136.23 132.564 136.23 132.564C122.082 142.79 107.19 171.697 64 191.679" stroke="#0040DC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M115.676 130.366C105.633 125.205 96.8776 126.503 91.7431 128.217C80.7357 131.887 72.6969 144.73 77.5894 160.908C81.2596 173.041 93.425 226.941 104.674 227.956C117.606 229.123 104.855 189.937 117.079 190.262C119.174 190.317 120.427 191.078 121.787 193.911C124.943 200.491 126.864 217.616 127.213 220.952C127.562 224.289 128.101 227.585 133.677 227.982C142.856 228.638 144.969 209.524 153.422 191.668C167.379 162.183 184.333 167.054 184.333 167.054" stroke="#0040DC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-</g>
 </svg>

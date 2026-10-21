@@ -135,6 +135,13 @@ async function openDoc(id: number) {
     const data = await api.get<{ document: DocFull, clinic: ClinicSettings }>(`/documents/${id}`)
     current.value = data.document
     settings.value = data.clinic
+    // Deep links (/documents?open=N) may arrive without a patient selected;
+    // the preview needs the patient for the header, so load it from the doc.
+    if (!patient.value || patient.value.id !== data.document.patient_id) {
+      const full = await api.get<{ patient: PatientFull }>(`/patients/${data.document.patient_id}`)
+      patient.value = full.patient
+      await reloadDocs()
+    }
   }
   catch (e: any) {
     errorMsg.value = e?.messageKey ?? "errors.generic"
@@ -266,39 +273,46 @@ onMounted(async () => {
     </div>
 
     <template v-else>
-      <!-- Preview / print: HKN Dental Care ordonnance/template -->
+      <!-- Preview / print: shared HKN letterhead for every document type -->
       <div v-if="current" class="card print-area" style="max-width:720px;">
-        <template v-if="current.doc_type === 'ordonnance'">
-          <!-- Ordonnance uses the dedicated HKN sheet -->
-          <div class="ord-sheet">
-            <div class="ord-header">
-              <div class="ord-brand">
-                <img src="/ordonnance-mark.svg" alt="" class="ord-logo" aria-hidden="true">
-                <div class="ord-brandtext">
-                  <span class="ord-brand-hkn">HKN</span>
-                  <span class="ord-brand-sub">Dental Care</span>
-                </div>
-              </div>
-              <div class="ord-doctor">
-                <div class="ord-doctor-name">{{ settings?.doctor_name }}</div>
-                <div class="ord-doctor-sub">{{ settings?.header_note }}</div>
+        <div class="ord-sheet">
+          <div class="ord-header">
+            <div class="ord-brand">
+              <img src="/ordonnance-mark.svg" alt="" class="ord-logo" aria-hidden="true">
+              <div class="ord-brandtext">
+                <span class="ord-brand-hkn">HKN</span>
+                <span class="ord-brand-sub">Dental Care</span>
               </div>
             </div>
-            <div class="ord-clinic-info">
-              <div v-if="settings?.address">📍 {{ settings?.address }}</div>
-              <div v-if="settings?.phone">📞 {{ settings?.phone }}</div>
-              <div>{{ settings?.clinic_name }}</div>
+            <div class="ord-doctor">
+              <div class="ord-doctor-name">{{ settings?.doctor_name }}</div>
+              <div v-if="settings?.header_note" class="ord-doctor-sub">{{ settings?.header_note }}</div>
             </div>
-            <hr class="ord-rule">
+          </div>
+          <div class="ord-clinic-info">
+            <div v-if="settings?.address" class="ord-contact">
+              <svg class="ord-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 21.2c4.2-4.3 7-7.6 7-11a7 7 0 1 0-14 0c0 3.4 2.8 6.7 7 11Z" />
+                <circle cx="12" cy="10" r="2.6" />
+              </svg>
+              <span>{{ settings.address }}</span>
+            </div>
+            <div v-if="settings?.phone" class="ord-contact">
+              <svg class="ord-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7 12.8 12.8 0 0 0 .7 2.8 2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4 12.8 12.8 0 0 0 2.8.7 2 2 0 0 1 1.7 2Z" />
+              </svg>
+              <span>{{ settings.phone }}</span>
+            </div>
+            <div v-if="settings?.clinic_name" class="ord-clinic-name">{{ settings.clinic_name }}</div>
+          </div>
+          <hr class="ord-rule">
 
-            <div class="ord-patient">
-              <template v-if="editing">
-                <div class="field" style="margin-bottom:6px;">
-                  <label for="ord-name">{{ t("documents.nom_prenom") }}</label>
-                  <input id="ord-name" class="input" :value="patient?.nom + ' ' + patient?.prenom" disabled>
-                </div>
-              </template>
-              <p v-else class="ord-line-label">{{ t("documents.nom_prenom") }} : <strong>{{ patient?.nom }} {{ patient?.prenom }}</strong></p>
+          <div class="ord-patient">
+            <p class="ord-line-label">
+              {{ t("documents.nom_prenom") }} : <strong>{{ patient?.nom }} {{ patient?.prenom }}</strong>
+              <span class="ord-code">{{ patient?.code }}</span>
+            </p>
+            <template v-if="current.doc_type === 'ordonnance'">
               <template v-if="editing">
                 <div class="field" style="margin-bottom:6px;">
                   <label for="ord-age">{{ t("documents.age") }}</label>
@@ -321,12 +335,6 @@ onMounted(async () => {
                     >F</button>
                   </div>
                 </div>
-
-                <div v-for="(_, idx) in editForm.lines" :key="idx" class="field" style="margin-bottom:6px;">
-                  <label :for="`ord-line-${idx}`">{{ t("documents.ligne") }} {{ idx + 1 }}</label>
-                  <input :id="`ord-line-${idx}`" v-model="editForm.lines[idx]" class="input">
-                </div>
-                <button class="btn btn-text btn-sm" @click="editForm.lines.push('')">{{ t("documents.ajouter_ligne") }}</button>
               </template>
               <template v-else>
                 <p class="ord-line-label">{{ t("documents.age") }} : {{ current.content?.age || "—" }}</p>
@@ -336,90 +344,75 @@ onMounted(async () => {
                   <span class="ord-sexbox" style="margin-inline-start:6px;" :class="{ 'ord-sexbox-on': current.content?.sexe === 'F' }">F</span>
                 </p>
               </template>
-            </div>
+            </template>
+          </div>
 
+          <div class="ord-content">
             <div class="ord-watermark" aria-hidden="true">
               <img src="/ordonnance-watermark.svg" alt="" class="ord-watermark-img">
             </div>
 
-            <div class="ord-content">
-              <ol v-if="!editing" style="margin:0;padding-inline-start:20px;">
-                <li v-for="(line, idx) in current.content?.lines ?? []" :key="idx" style="margin-bottom:6px;">
-                  {{ line }}
-                </li>
-              </ol>
-              <p v-if="!editing && current.content?.note" class="small muted" style="margin-top:12px;">{{ current.content.note }}</p>
-            </div>
+            <template v-if="current.doc_type === 'ordonnance'">
+              <template v-if="editing">
+                <div v-for="(_, idx) in editForm.lines" :key="idx" class="field" style="margin-bottom:6px;">
+                  <label :for="`ord-line-${idx}`">{{ t("documents.ligne") }} {{ idx + 1 }}</label>
+                  <input :id="`ord-line-${idx}`" v-model="editForm.lines[idx]" class="input">
+                </div>
+                <button class="btn btn-text btn-sm" @click="editForm.lines.push('')">{{ t("documents.ajouter_ligne") }}</button>
+                <div class="field" style="margin-top:12px;">
+                  <label for="ord-note">{{ t("common.notes") }}</label>
+                  <input id="ord-note" v-model="editForm.note" class="input">
+                </div>
+              </template>
+              <template v-else>
+                <ol class="ord-list">
+                  <li v-for="(line, idx) in current.content?.lines ?? []" :key="idx">{{ line }}</li>
+                </ol>
+                <p v-if="current.content?.note" class="ord-note">{{ current.content.note }}</p>
+              </template>
+            </template>
 
-            <div class="ord-footer">
-              <div class="ord-footer-slot">
-                <hr class="ord-signrule">
-                <div class="ord-caption">{{ t("documents.date") }}</div>
-              </div>
-              <div class="ord-footer-slot" style="text-align:end;">
-                <hr class="ord-signrule">
-                <div class="ord-caption">{{ t("documents.signature") }}</div>
-              </div>
-            </div>
+            <template v-else>
+              <h2 class="ord-title">{{ t(`documents.${current.doc_type}`) }}</h2>
+              <template v-if="editing">
+                <div v-if="current.doc_type === 'certificat'" class="field" style="margin-bottom:12px;">
+                  <label for="doc-duration">{{ t("documents.duree_jours") }}</label>
+                  <input id="doc-duration" v-model="editForm.duration_days" type="number" min="0" max="90" class="input">
+                </div>
+                <div class="field" style="margin-bottom:8px;">
+                  <label for="doc-text">{{ t("documents.texte") }}</label>
+                  <textarea id="doc-text" v-model="editForm.text" class="textarea" />
+                </div>
+              </template>
+              <template v-else>
+                <p class="ord-text">{{ current.content?.text }}</p>
+                <p v-if="current.doc_type === 'certificat' && current.content?.duration_days" class="ord-duration">
+                  {{ t("documents.duree_jours") }} : {{ current.content.duration_days }}
+                </p>
+              </template>
+              <p v-if="settings?.footer_note" class="ord-footer-note">{{ settings.footer_note }}</p>
+            </template>
           </div>
 
-          <div class="dialog-actions no-print" style="margin-top:16px;">
-            <button class="btn btn-secondary" @click="current = null">{{ t("common.close") }}</button>
-            <button v-if="!editing" class="btn btn-secondary" @click="startEdit">{{ t("documents.editer") }}</button>
-            <button v-if="editing" class="btn btn-secondary" :disabled="savingEdit" @click="saveEdit">{{ t("common.save") }}</button>
-            <button class="btn btn-primary" @click="printDoc">{{ t("common.print") }}</button>
-          </div>
-        </template>
-
-        <template v-else>
-          <!-- Certificat / attestation keep the simple sheet -->
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
-            <div>
-              <strong style="font-size:16px;">{{ settings?.clinic_name || "Clinique" }}</strong>
-              <div class="small muted">{{ settings?.doctor_name }}</div>
-              <div class="small muted">{{ settings?.address }}</div>
-              <div class="small muted" style="font-variant-numeric:tabular-nums;">{{ settings?.phone }}</div>
+          <div class="ord-footer">
+            <div class="ord-footer-slot">
+              <div class="ord-date-value">{{ dates.fmtDate(current.created_at) }}</div>
+              <hr class="ord-signrule">
+              <div class="ord-caption">{{ t("documents.date") }}</div>
             </div>
-            <div class="small muted" style="text-align:end;">
-              {{ dates.fmtDate(current.created_at) }}
+            <div class="ord-footer-slot ord-footer-end">
+              <hr class="ord-signrule">
+              <div class="ord-caption">{{ t("documents.signature") }}</div>
             </div>
           </div>
-          <hr style="border:none;border-top:1px solid var(--color-border);margin:16px 0;">
-          <p v-if="settings?.header_note" class="small muted" style="margin-bottom:12px;">{{ settings.header_note }}</p>
+        </div>
 
-          <p style="margin-bottom:12px;">
-            <strong>{{ patient?.nom }} {{ patient?.prenom }}</strong>
-            <span class="small muted" style="margin-inline-start:8px;">{{ patient?.code }}</span>
-          </p>
-
-          <h2 class="section-title" style="margin-bottom:12px;">{{ t(`documents.${current.doc_type}`) }}</h2>
-
-          <template v-if="editing">
-            <div v-if="current.doc_type === 'certificat'" class="field" style="margin-bottom:12px;">
-              <label for="doc-duration">{{ t("documents.duree_jours") }}</label>
-              <input id="doc-duration" v-model="editForm.duration_days" type="number" min="0" max="90" class="input">
-            </div>
-            <div class="field" style="margin-bottom:16px;">
-              <label for="doc-text">{{ t("documents.texte") }}</label>
-              <textarea id="doc-text" v-model="editForm.text" class="textarea" />
-            </div>
-          </template>
-          <template v-else>
-            <p style="white-space:pre-wrap;">{{ current.content?.text }}</p>
-            <p v-if="current.doc_type === 'certificat' && current.content?.duration_days" class="small" style="margin-top:8px;">
-              {{ t("documents.duree_jours") }} : {{ current.content.duration_days }}
-            </p>
-          </template>
-
-          <p v-if="settings?.footer_note" class="small muted" style="margin-top:24px;">{{ settings.footer_note }}</p>
-
-          <div class="dialog-actions no-print" style="margin-top:24px;">
-            <button class="btn btn-secondary" @click="current = null">{{ t("common.close") }}</button>
-            <button v-if="!editing" class="btn btn-secondary" @click="startEdit">{{ t("documents.editer") }}</button>
-            <button v-if="editing" class="btn btn-secondary" :disabled="savingEdit" @click="saveEdit">{{ t("common.save") }}</button>
-            <button class="btn btn-primary" @click="printDoc">{{ t("common.print") }}</button>
-          </div>
-        </template>
+        <div class="dialog-actions no-print" style="margin-top:16px;">
+          <button class="btn btn-secondary" @click="current = null">{{ t("common.close") }}</button>
+          <button v-if="!editing" class="btn btn-secondary" @click="startEdit">{{ t("documents.editer") }}</button>
+          <button v-if="editing" class="btn btn-secondary" :disabled="savingEdit" @click="saveEdit">{{ t("common.save") }}</button>
+          <button class="btn btn-primary" @click="printDoc">{{ t("common.print") }}</button>
+        </div>
       </div>
 
       <!-- List -->
@@ -499,10 +492,13 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* ---- HKN Dental Care ordonnance sheet ---------------------------------- */
+/* ---- HKN Dental Care document sheet ------------------------------------ */
 .ord-sheet {
   position: relative;
-  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  min-height: 620px;
+  padding: 26px 30px;
   color: #0040dc;
   background: #fff;
   font-family: inherit;
@@ -518,12 +514,12 @@ onMounted(async () => {
 .ord-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .ord-logo {
-  width: 54px;
-  height: 48px;
+  width: 64px;
+  height: 56px;
   display: block;
   color: #0040dc;
 }
@@ -538,26 +534,27 @@ onMounted(async () => {
 }
 
 .ord-brand-hkn {
-  font-size: 17px;
+  font-size: 18px;
 }
 
 .ord-brand-sub {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .ord-doctor {
   text-align: start;
+  padding-top: 2px;
 }
 
 .ord-doctor-name {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: 0.2px;
 }
 
 .ord-doctor-sub {
-  margin-top: 2px;
+  margin-top: 4px;
   font-size: 13px;
 }
 
@@ -566,22 +563,34 @@ onMounted(async () => {
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
-  margin-top: 8px;
-  min-height: 52px;
+  margin-top: 10px;
 }
 
-.ord-logo-xs {
-  position: absolute;
-  inset-inline-start: 0;
-  top: 100px;
-  width: 30px;
-  opacity: 0.9;
+.ord-contact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ord-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ord-clinic-name {
+  margin-top: 2px;
 }
 
 .ord-rule {
   border: none;
   border-top: 1px solid #0040dc;
-  margin: 12px 0 20px;
+  margin: 14px 0 20px;
 }
 
 .ord-patient {
@@ -595,6 +604,13 @@ onMounted(async () => {
 .ord-line-label {
   font-size: 13.5px;
   color: #0040dc;
+}
+
+.ord-code {
+  margin-inline-start: 10px;
+  font-size: 11.5px;
+  color: #0040dc;
+  opacity: 0.7;
 }
 
 .ord-sexbox,
@@ -621,30 +637,77 @@ onMounted(async () => {
   color: #fff;
 }
 
+.ord-content {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  margin-top: 30px;
+  min-height: 240px;
+  font-size: 13.5px;
+  color: #0b1a4a;
+}
+
+.ord-content > *:not(.ord-watermark) {
+  position: relative;
+  z-index: 1;
+}
+
 .ord-watermark {
   position: absolute;
-  inset-inline: 0;
-  top: 46%;
-  transform: translateY(-28%);
+  inset: 0;
   display: flex;
+  align-items: center;
   justify-content: center;
   pointer-events: none;
-  z-index: 1;
+  z-index: 0;
 }
 
 .ord-watermark-img {
   width: 340px;
-  opacity: 0.06;
-  mix-blend-mode: multiply;
+  max-width: 72%;
+  opacity: 0.07;
 }
 
-.ord-content {
-  position: relative;
-  z-index: 2;
-  margin-top: 42px;
-  min-height: 200px;
-  font-size: 13.5px;
-  color: #0b1a4a;
+.ord-list {
+  margin: 0;
+  padding-inline-start: 20px;
+}
+
+.ord-list li {
+  margin-bottom: 7px;
+  padding-inline-start: 2px;
+  line-height: 1.5;
+}
+
+.ord-note {
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: #475569;
+}
+
+.ord-title {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #0040dc;
+}
+
+.ord-text {
+  white-space: pre-wrap;
+  line-height: 1.65;
+}
+
+.ord-duration {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: #0040dc;
+}
+
+.ord-footer-note {
+  margin-top: 22px;
+  font-size: 11.5px;
+  color: #64748b;
 }
 
 .ord-footer {
@@ -653,26 +716,36 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-top: 60px;
+  margin-top: 48px;
 }
 
 .ord-footer-slot {
-  width: 160px;
+  width: 170px;
+}
+
+.ord-footer-end {
+  text-align: end;
+}
+
+.ord-date-value {
+  margin-bottom: 6px;
+  font-size: 12px;
 }
 
 .ord-signrule {
-  width: 70px;
+  width: 80px;
   border: none;
   border-top: 0.7px solid #0040dc;
   margin: 0 0 6px;
 }
 
-.ord-footer-slot:nth-child(2) .ord-signrule {
-  margin-inline: auto;
+.ord-footer-end .ord-signrule {
+  margin-inline-start: auto;
 }
 
 .ord-caption {
   font-size: 12px;
+  letter-spacing: 0.3px;
   color: #0040dc;
 }
 
@@ -694,7 +767,16 @@ onMounted(async () => {
   }
 
   .ord-sheet {
+    min-height: 265mm;
     padding: 0;
+  }
+
+  .ord-list li,
+  .ord-note,
+  .ord-title,
+  .ord-patient,
+  .ord-footer {
+    break-inside: avoid;
   }
 }
 </style>

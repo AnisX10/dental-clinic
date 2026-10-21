@@ -1,10 +1,9 @@
-<svg width="60" height="52" viewBox="18 8 42 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="60" height="52" viewBox="13.5 12.2 20.4 18.9" fill="none" xmlns="http://www.w3.org/2000/svg">
 <!--
   HKN Dental Care mark, extracted from the Ordonnance template (logo strokes only).
-  Shifts the template's icon paths so they fill a tight 60x52 viewBox.
+  The viewBox covers the two logo strokes with a small padding; do not add a
+  transform here or the mark gets clipped.
 -->
-<g transform="translate(-11.2 -13.2) scale(1.25)">
 <path d="M31.071 15.029C28.6042 12.6982 25.6184 15.0558 25.6184 15.0558C23.3427 16.7007 20.9473 21.3505 14 24.5646" stroke="#0040DC" stroke-width="1.12967" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M22.3697 14.7025C20.7543 13.8722 19.3459 14.0811 18.52 14.3567C16.7495 14.9471 15.4564 17.013 16.2434 19.6152C16.8337 21.5668 18.7906 30.2369 20.6001 30.4002C22.6801 30.5878 20.6291 24.2847 22.5954 24.3369C22.9324 24.3458 23.134 24.4681 23.3528 24.9239C23.8603 25.9823 24.1693 28.7369 24.2255 29.2736C24.2817 29.8103 24.3684 30.3404 25.2653 30.4044C26.7416 30.5098 27.0817 27.4353 28.4413 24.5632C30.6864 19.8203 33.4135 20.6039 33.4135 20.6039" stroke="#0040DC" stroke-width="1.12967" stroke-linecap="round" stroke-linejoin="round"/>
-</g>
 </svg>
