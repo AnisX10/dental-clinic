@@ -64,7 +64,7 @@ def keep(path: Path) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--name", default=None, help="zip base name (default: clinic-app-YYYYMMDD)")
     parser.add_argument("--out", default=None, help="output directory (default: repo parent)")
     args = parser.parse_args()
