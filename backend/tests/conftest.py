@@ -14,13 +14,14 @@ _server = None
 
 if not _test_db_env:
     try:
-        import pgserver  # E402 deliberately after sys.path bootstrap
+        import pgserver  # pyright: ignore[reportMissingImports] — E402 deliberately after sys.path bootstrap
 
         _test_pgdata = BACKEND_DIR.parent / "data" / "pgdata-test"
         _test_pgdata.parent.mkdir(parents=True, exist_ok=True)
         _server = pgserver.get_server(str(_test_pgdata), cleanup_mode=None)
-    except (ImportError, Exception):
-        # Fallback to local PostgreSQL instance (e.g. on Python 3.12+ where pgserver is unsupported)
+    except Exception:
+        # ImportError is a subclass of Exception; keep the fallback for
+        # Python 3.12+ where pgserver is unsupported or absent.
         _test_db_env = "postgresql+psycopg://postgres@127.0.0.1:5432/clinic_test"
 
 
@@ -32,6 +33,31 @@ def _reset_rate_limiter():
     _login_limiter._hits.clear()
     yield
     _login_limiter._hits.clear()
+
+
+@pytest.fixture(autouse=True)
+def _license_unlocked():
+    """Every API test runs with an active stub license (the real machinery is
+    exercised in test_licensing.py, which swaps the stub out per-test)."""
+    from types import SimpleNamespace
+
+    from app.licensing import service
+
+    stub = SimpleNamespace()
+    stub.state = service.LicenseState(
+        active=True,
+        reason="ok",
+        payload={"clinic": "Test Clinique", "dentist": "Dr Test", "issued_at": "2026-01-01"},
+        installation_id="stub-install-0001",
+    )
+    stub.load = lambda: stub.state
+    original = service.get_manager
+    service._original_get_manager = original
+    try:
+        service.get_manager = lambda: stub
+        yield
+    finally:
+        service.get_manager = original
 
 
 @pytest.fixture(scope="session")
@@ -52,6 +78,8 @@ def db_url():
         admin.dispose()
         return str(target_url)
 
+    # This branch only runs when the pgserver import above succeeded.
+    assert _server is not None
     uri = _server.get_uri()
     url = make_url(uri).set(database="clinic_test")
     admin = create_admin_engine(uri)

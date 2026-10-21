@@ -37,6 +37,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# License lockout: no valid .lic file -> every /api call except health and the
+# license endpoints returns 403. The SPA itself stays downloadable so the lock
+# screen can render and show the installation ID to the clinic.
+_EXEMPT_API = {"/api/health", "/api/license/status", "/api/license/install"}
+
+
+@app.middleware("http")
+async def license_lockout(request, call_next):
+    path = request.url.path
+    if path.startswith("/api") and path not in _EXEMPT_API:
+        from app.licensing import service
+
+        if not service.get_manager().state.active:
+            return JSONResponse(
+                {"error": {"code": "license_locked", "message_key": "license.locked", "values": {}}},
+                status_code=403,
+            )
+    return await call_next(request)
+
 register_exception_handlers(app)
 
 from app.agenda.api import router as agenda_router  # noqa: E402
@@ -47,6 +67,7 @@ from app.devis.api import router as devis_router  # noqa: E402
 from app.documents.api import router as documents_router  # noqa: E402
 from app.dsp.api import router as dsp_router  # noqa: E402
 from app.labs.api import router as labs_router  # noqa: E402
+from app.licensing.api import router as licensing_router  # noqa: E402
 from app.patients.api import router as patients_router  # noqa: E402
 from app.payments.api import router as payments_router  # noqa: E402
 from app.settings.api import router as settings_router  # noqa: E402
@@ -65,6 +86,7 @@ app.include_router(sterilization_router)
 app.include_router(labs_router)
 app.include_router(stock_router)
 app.include_router(settings_router)
+app.include_router(licensing_router)
 app.include_router(backup_router)
 
 
@@ -106,12 +128,19 @@ else:
 @app.on_event("startup")
 def startup() -> None:
     from app.core.db import get_session_factory
+    from app.licensing import service
 
     db = get_session_factory()()
     try:
         _ensure_schema(db)
     finally:
         db.close()
+
+    state = service.get_manager().load()
+    if state.active:
+        logger.info("License OK: %s", (state.payload or {}).get("clinic"))
+    else:
+        logger.warning("Application LOCKED — no valid license (%s). Installation ID: %s", state.reason, service.installation_getter())
 
     from app.backup.service import BackupScheduler
 

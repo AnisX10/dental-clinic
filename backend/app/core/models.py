@@ -9,6 +9,7 @@ Design notes:
 """
 from datetime import date, datetime, time
 from decimal import Decimal
+from typing import Optional
 
 from sqlalchemy import (
     JSON,
@@ -98,6 +99,8 @@ class ClinicSettings(Base):
     dsp_default_code: Mapped[str] = mapped_column(String(20), nullable=False, default="")
     dsp_default_coefficient: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False, default=0)
     dsp_default_fee: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    # Random id generated on first run — the license file must carry it.
+    installation_id: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
 
 
@@ -205,7 +208,7 @@ class Appointment(Base):
     )
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     # Optional exact time; `time_note` holds free approximations like "vers 10h".
-    time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    time: Mapped[Optional[time]] = mapped_column(Time, nullable=True)  # noqa: UP045 (SQLA py3.13 union re-eval)
     time_note: Mapped[str] = mapped_column(String(60), nullable=False, default="")
     motif: Mapped[str] = mapped_column(String(160), nullable=False, default="")
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="a_venir", index=True)

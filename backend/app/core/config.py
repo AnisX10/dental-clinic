@@ -13,6 +13,10 @@ BASE_DIR = Path(__file__).resolve().parents[2]  # backend/
 PROJECT_ROOT = BASE_DIR.parent
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / ".output" / "public"
 
+# Product version: shown in Paramètres, surfaced by `cli.py version` and
+# bumped on every release that reaches a customer machine.
+APP_VERSION = "1.0.0"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", env_prefix="CLINIC_", extra="ignore")
@@ -36,6 +40,11 @@ class Settings(BaseSettings):
     backup_hour: int = 20
     backup_keep_daily: int = 14
     backup_keep_manual: int = 5
+
+    # Off-site copy target (second disk, USB autos-mount path, network share or
+    # a cloud-sync folder). Empty disables it. Every successful backup is
+    # mirrored there with the same retention counts.
+    backup_offsite_dir: str = ""
 
     max_attachment_mb: int = 15
 

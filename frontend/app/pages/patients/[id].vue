@@ -472,7 +472,7 @@ const tabs = [
 
 function switchTab(key: typeof tab.value) {
   tab.value = key
-  const q: Record<string, unknown> = { ...route.query }
+  const q = { ...route.query }
   if (key === "resume") delete q.tab
   else q.tab = key
   router.replace({ query: q })

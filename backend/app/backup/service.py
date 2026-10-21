@@ -6,6 +6,8 @@
 - The scheduler runs inside the API process (single local server, no extra
   services for the clinic to manage).
 """
+import logging
+import shutil
 import subprocess
 import threading
 from datetime import datetime
@@ -16,6 +18,8 @@ from sqlalchemy.orm import Session as OrmSession
 
 from app.core.dates import now_tz
 from app.core.models import BackupRecord
+
+logger = logging.getLogger("clinic")
 
 _scheduler_started = False
 _scheduler_lock = threading.Lock()
@@ -127,12 +131,48 @@ def run_backup(db: OrmSession, *, kind: str, reason: str = "") -> BackupRecord:
     from app.core.services import get_settings_row
 
     settings_row = get_settings_row(db)
+    _copy_offsite(
+        target,
+        kind,
+        keep_daily=settings_row.backup_keep_daily,
+        keep_manual=settings_row.backup_keep_manual,
+    )
     _apply_retention(
         db,
         keep_daily=settings_row.backup_keep_daily,
         keep_manual=settings_row.backup_keep_manual,
     )
     return record
+
+
+def _copy_offsite(target: Path, kind: str, *, keep_daily: int, keep_manual: int) -> None:
+    """Mirror a successful dump to the off-site target, best-effort.
+
+    An off-site failure must never fail the original backup: it is only logged.
+    """
+    from app.core.config import get_settings
+
+    raw = (get_settings().backup_offsite_dir or "").strip().strip('"')
+    if not raw:
+        return
+    off_dir = Path(raw)
+    try:
+        off_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(target, off_dir / target.name)
+        keep = keep_daily if kind == "auto" else keep_manual
+        siblings = sorted(
+            off_dir.glob(f"clinic_{kind}_*.dump"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        for stale in siblings[max(keep, 1):]:
+            try:
+                stale.unlink()
+            except OSError:
+                continue
+        logger.info("Offsite copy saved: %s", off_dir / target.name)
+    except OSError as exc:
+        logger.warning("Offsite copy failed (%s): %s", off_dir, exc)
 
 
 def _minimal_env() -> dict:

@@ -42,6 +42,9 @@ def get_settings_view(user: User = Depends(get_current_user), db: OrmSession = D
     data["dsp_default_code"] = settings.dsp_default_code
     data["dsp_default_coefficient"] = str(settings.dsp_default_coefficient)
     data["dsp_default_fee"] = str(settings.dsp_default_fee)
+    from app.core.config import APP_VERSION
+
+    data["version"] = APP_VERSION
     return {"settings": data}
 
 

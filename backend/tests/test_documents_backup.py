@@ -63,6 +63,14 @@ def test_document_invalid_type_rejected(owner_client, users):
     assert resp.status_code == 400
 
 
+def test_settings_expose_app_version(owner_client, users):
+    from app.core.config import APP_VERSION
+
+    resp = owner_client.get("/api/settings")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["settings"]["version"] == APP_VERSION
+
+
 def test_document_includes_clinic_template(owner_client, users):
     patient = _patient(owner_client)
     owner_client.put(
@@ -112,6 +120,34 @@ def test_backup_retention(owner_client, users):
         assert len(kept_files) == 5, f"expected 5 kept files, got {len(kept_files)}"
     finally:
         db.close()
+
+
+def test_offsite_copy_follows_backup(owner_client, users, tmp_path, monkeypatch):
+    """With CLINIC_BACKUP_OFFSITE_DIR set, every successful dump is mirrored."""
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "backup_offsite_dir", str(tmp_path))
+    resp = owner_client.post("/api/backup/run")
+    assert resp.status_code == 201, resp.text
+    copies = list(tmp_path.glob("clinic_manual_*.dump"))
+    assert len(copies) == 1
+    assert copies[0].stat().st_size > 0
+
+
+def test_drill_restores_latest_backup(owner_client, users):
+    """cli.py drill: newest backup -> throwaway DB -> counts -> dropped."""
+    import psycopg
+
+    assert owner_client.post("/api/backup/run").status_code == 201
+
+    from app.cli import _drill
+
+    assert _drill(None, keep=False) == 0
+
+    admin = psycopg.connect("postgresql://postgres@127.0.0.1:5432/postgres", connect_timeout=10, autocommit=True)
+    remaining = admin.execute("SELECT 1 FROM pg_database WHERE datname = 'clinic_drill'").fetchone()
+    admin.close()
+    assert remaining is None
 
 
 def test_backup_restore_round_trip(owner_client):

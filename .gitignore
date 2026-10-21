@@ -15,4 +15,8 @@ dist/
 reference/
 .freebuff/
 scratch/
+e2e/.auth/
+e2e/test-results/
+tools/license/
+*.lic
 

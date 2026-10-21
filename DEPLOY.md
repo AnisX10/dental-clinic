@@ -28,10 +28,40 @@ python -m venv .venv
 .venv\Scripts\python -m pip install -r backend\requirements.txt
 ```
 
-Create the two clinic accounts (owner = the dentist):
+Create the first account (owner = the dentist). The command also creates the
+database schema, the treatment catalogue and prints a pre-launch security
+audit at the end:
 
 ```bat
-.venv\Scripts\python backend\app\cli.py create-user --username dentiste --role dentiste --owner --full-name "Dr Nom"
+.venv\Scripts\python backend\app\cli.py init-prod
+```
+
+Passwords must be at least 10 characters and mix letters, digits and a symbol.
+
+### Licence activation (seller step)
+
+The application starts **locked** until a signed licence file is installed.
+Perpetual per-clinic licence; validation is fully offline (no internet needed).
+
+1. Start the app once (`scripts\start.bat`); the log prints the
+   **installation ID**, and the licence screen (shown instead of the login)
+   displays it as well.
+2. From the seller machine, issue the licence:
+
+   ```bat
+   .venv\Scripts\python tools\license.py issue --clinic "Clinique X" --dentist "Dr Y" --installation <installation-id>
+   ```
+
+3. Copy the produced `.lic` file into the clinic's `data\` folder (restart)
+   or upload it from the licence screen — the app unlocks immediately.
+
+The signing private key (`tools\license\private.pem`) never leaves the seller
+and must never be committed. Each installation has a different ID, so a
+licence file only works on that one database.
+
+Then create the other accounts (owner flag only for the dentist):
+
+```bat
 .venv\Scripts\python backend\app\cli.py create-user --username reception --role reception --full-name "Réception"
 ```
 
@@ -70,7 +100,35 @@ Close the window to stop the app. The database survives restarts.
   tables are included automatically — nothing extra to configure.
 - Retention: last 14 automatic + 5 manual backups; the most recent backup
   is never deleted.
-- Restore drill (recommended once before go-live, then once a year):
+
+### Off-site copy (strongly recommended)
+
+A backup on the same disk dies with the disk. Point `backend\.env` at a
+second location (second disk, USB auto-mount path, network share or a
+cloud-sync folder), then restart the app:
+
+```ini
+CLINIC_BACKUP_OFFSITE_DIR=E:\ClinicBackups
+```
+
+Every successful backup (automatic or manual) is copied there immediately
+with the same retention counts. The app never fails a backup because the
+off-site copy failed — it just logs a warning — check the folder after the
+first nightly backup to confirm it fills up.
+
+### Automated monthly drill (throwaway restore test)
+
+```bat
+schtasks /Create /TN "ClinicBackupDrill" /SC MONTHLY /D 1 /ST 07:30 ^
+  /TR "C:\path\to\dental-clinic-software\.venv\Scripts\python.exe C:\path\to\dental-clinic-software\backend\app\cli.py drill"
+```
+
+`cli.py drill` restores the newest backup into a throwaway `clinic_drill`
+database, prints row counts (patients, treatments, payments, ...) and drops
+it afterwards. Production data is never touched — safe to run while the app
+is up. Run `... cli.py drill --keep` to inspect the scratch database manually.
+
+### Full restore drill (recommended once before go-live, then once a year)
 
 ```bat
 :: 1) stop the app (close the start.bat window)
@@ -103,8 +161,31 @@ was modified.
 
 ---
 
-## 6. Pre-launch checklist
+## 6. Upgrading to a new version
 
+```bat
+:: 1) stop the app (close the server window)
+:: 2) replace the code (new copy of the repo folder, or `git pull` if using git)
+::    reinstall backend deps only if requirements.txt changed:
+::    .venv\Scripts\pip install -r backend\requirements.txt
+:: 3) from backend\, run the safe upgrade (backup -> migrate -> frontend build):
+::    .venv\Scripts\python app\cli.py upgrade
+:: 4) start the app again (start.bat)
+:: 5) verify: Paramètres shows the new Version; open a patient file
+```
+
+`cli.py upgrade` takes a pre-upgrade safety dump automatically, applies schema
+migrations and rebuilds the frontend bundle. The installed version is visible
+at the bottom of the **Paramètres** page and via `cli.py version`.
+
+If `upgrade` skipped the frontend build because Node.js is missing, run
+section 5 manually before restarting the app.
+
+---
+
+## 7. Pre-launch checklist
+
+- [ ] `init-prod` run once (first owner created, security audit all `[OK]` or TODOs resolved)
 - [ ] Unique passwords set; demo accounts removed or renamed
 - [ ] Do **not** run the demo seeder (`backend\seed_demo_tmp.py`) against the
       production database — it creates demo patients and generates one-time
