@@ -39,10 +39,37 @@ Complements `DEPLOY.md` (technical installation).
 - Updates: seller-supplied app updates use `cli.py upgrade` at the clinic;
   licence survives (it lives in `data\` and binds to the database).
 
-## 3. Known open risk (blocker for scale)
+## 3. Upstream licence review (recorded 2026-10-21)
 
-`STRATEGY.md` section 3: the DentalPin upstream is source-available under its
-own terms. **Before selling to multiple clinics, a formal upstream licence
-review is required.** Until then, sales should remain limited to the
-initial target (private deployment for a single clinic). The upstream repo
-location must be identified and pinned (no local checkout exists today).
+**Upstream identified and pinned for review:** https://github.com/dentalpin/dentalpin
+(read-only shallow clone at `reference/dentalpin/`, git-ignored; re-clone and
+re-check at every major release until the Change Date).
+
+**Terms read from the pinned `LICENSE`:**
+- Licensor: Dentared Odontology Services S.L. (`(c)` 2026).
+- Business Source License 1.1 → converts to Apache-2.0 at the Change Date
+  (4 years from publication, ≈ 2030).
+- **Additional Use Grant:** production use is *allowed*, provided it is not
+  "a commercial Software-as-a-Service (SaaS) offering for dental clinic
+  management where the primary value is substantially derived from the
+  Licensed Work".
+
+**Verdict:**
+- ✅ **Single-clinic private local deployment (current target) — permitted.**
+  It is plain production use on the clinic's own PC; not a SaaS.
+- ⚠️ **Multi-clinic perpetual-licence sales (runbook §2) — permitted in
+  principle** (we distribute self-hosted copies; we do not host them), but
+  get a short legal confirmation before this becomes the core business.
+- ❌ **Never offer hosted/cloud SaaS derived from it before the Change
+  Date** or without written permission from Dentared.
+- Our codebase does not vendor upstream source files (pattern-adapted, not
+  copied); when delivering copies to clinics, still preserve upstream
+  LICENSE/copyright notices and third-party notices.
+- The upstream optional `verifactu` module carries a Spanish tax-compliance
+  duty ("productor del SIF") on whoever operates real invoicing in Spain —
+  irrelevant to the Algerian single-clinic target, important if Spain is
+  ever targeted.
+- Upstream audit: no formal public audit report ships in the repo; SECURITY
+  policy and CHANGELOG document an external-audit fix lineage. Our own
+  production gates remain DEPLOY.md §7 checklist, `docs/qa-report.md` and
+  the e2e suite.
