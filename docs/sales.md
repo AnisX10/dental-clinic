@@ -73,3 +73,80 @@ re-check at every major release until the Change Date).
   policy and CHANGELOG document an external-audit fix lineage. Our own
   production gates remain DEPLOY.md §7 checklist, `docs/qa-report.md` and
   the e2e suite.
+
+## 4. Next sales steps (plan dated 2026-10-22)
+
+### 4.1 Product claims we can honestly sell today
+
+- Local-first: the database and licence live in the clinic; works fully offline,
+  nothing patient-related leaves the cabinet PC.
+- Print output: A4 ordonnances/certificats/attestations with a proper letterhead,
+  multi-page ordonnances with repeated patient line, devis with signature blocks,
+  CNAS/DSP sheets ready to hand to the caisse.
+- Perpetual licence (per installation), no hosted service, no yearly lock-in.
+- FR + AR (RTL) interface.
+
+### 4.2 Demo kit — build once, reuse every meeting
+
+1. **Demo machine**: run the e2e bootstrap (`backend/e2e_bootstrap.py`) +
+   `scratch/seed_print_lab.py` + `scratch/seed_devis_dsp.py` against a demo DB —
+   gives realistic patients (e.g. Meziane Yasmine), an ordonnance, a certificat,
+   a 2-page ordonnance, a devis sent for accord, and a CNAS DSP with acts.
+2. **20-minute script**: patients → today's agenda → consultation → odontogramme
+   → print an ordonnance (show the print-quality + the settings reminder) →
+   devis "Envoyer/Imprimer" → DSP & CNAS sheet → agenda absent/cancel flow →
+   documents archive.
+3. **One-pager** (FR + AR): the claims of §4.1 + a screenshot of the ordonnance
+   print + licence/pourtour terms in one line.
+4. **Contract template**: one page — perpetual right of use per installation,
+   installation & training are separate services, updates optionally included,
+   no hosting, upstream notices preserved (see §3).
+5. **Pricing sheet** (perpetual model, owner fills the numbers):
+   - Licence perpétuelle par installation : ____ DA
+   - Installation + PostgreSQL + audit sécurité (DEPLOY.md §1–7) : ____ DA
+   - Formation équipe (2 h) : ____ DA
+   - Mise à jour optionnelle : ____ DA/an (≈15–20 % du licence)
+
+### 4.3 First 5 pilot cabinets (Alger), then decide scale-up
+
+Target profile: 1–2 chair cabinets, dentist-owner present during demo, has a
+spare PC or accepts the one we install. Sequence per cabinet: demo (20 min) →
+1-week pilot on his own patients → conversion.
+
+Success criteria for the pilot batch (2+ conversions needed): pilot used ≥2 weeks
+in real consultations; at least ordonnance + devis printed; explicit quote or
+won/lost reason recorded. Pilot cabinets sign nothing commercial; ask for a
+one-line testimonial + permission to name-drop.
+
+### 4.4 Channels (in order)
+
+1. Warm & local: the dentist-owners already known to the founder; ortho/general
+   colleagues of the first pilots.
+2. Dental supply shops and the informaticiens who install cabinets' PCs —
+   referral commission (one-time, fixed).
+3. Professional/regional gatherings (associations dentaires, faculté d'Alger
+   graduates' groups), case courante Facebook groups of dentistes.
+
+### 4.5 Weekly operating loop
+
+- Monday: 10 outbound touches (visit or called demo), log in the pipeline sheet
+  (cabinet, date, stage, next action, won/lost reason).
+- Demos within 48 h of interest; pilot installs scheduled the same week as demo.
+- Friday: update funnel numbers (touches → demos → pilots → paid installs) and
+  the top-3 product asks heard this week (feeds the roadmap).
+
+### 4.6 Legal/ops guardrails (from §3)
+
+- Never sell a hosted SaaS read of the Install — per-deployment licences only.
+- Keep upstream LICENSE + third-party notices intact in every delivered build.
+- New-server move = free re-issue with the new Installation ID (goodwill item —
+  say it explicitly during the sale).
+
+### 4.7 4-week launch plan
+
+| Week | Focus |
+|---|---|
+| 1 | Demo kit built (§4.2), pricing sheet decided, contract template ready, 2 demo machines |
+| 2 | 10 visits / 3–5 demos done; 2 pilots scheduled |
+| 3 | 2 + pilots installed and live; first objections log |
+| 4 | Pilot reviews → adjust pricing/version priority; public testimonial; scale to 10 visits/week |
