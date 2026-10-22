@@ -171,7 +171,7 @@ async function openRegistry(id: number) {
 }
 
 function printSheet() {
-  window.print()
+  askPrint()
 }
 
 // ---- Acts: add / edit / delete --------------------------------------------

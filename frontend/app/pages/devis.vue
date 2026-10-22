@@ -250,7 +250,7 @@ async function changeStatus(status: string) {
 }
 
 function printDevis() {
-  window.print()
+  askPrint()
 }
 </script>
 

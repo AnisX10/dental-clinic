@@ -275,6 +275,9 @@ const userInitials = computed(() => {
 
     <!-- Global Command Palette Modal -->
     <CommandPalette ref="commandPaletteRef" />
+
+    <!-- One-time print-settings reminder (Chromium margins/background) -->
+    <AppPrintHint />
   </div>
 </template>
 

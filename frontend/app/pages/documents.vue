@@ -205,7 +205,7 @@ async function saveEdit() {
 }
 
 function printDoc() {
-  window.print()
+  askPrint()
 }
 
 // ---- Continued-page running head ------------------------------------------

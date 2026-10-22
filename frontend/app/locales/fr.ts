@@ -539,6 +539,16 @@ export default {
     print_accord: "Bon pour accord",
   },
 
+  print_hint: {
+    title: "Réglages d’impression (Chrome / Edge)",
+    margins: "Marges : « Par défaut » — des marges personnalisées écrasent celles du document.",
+    background: "Graphiques d’arrière-plan : activés — sinon les fonds gris et les filigranes disparaissent.",
+    scale: "Échelle : 100 %",
+    note: "Le navigateur mémorise ces réglages pour tous les documents du cabinet.",
+    ok: "OK — ouvrir la boîte d’impression",
+    never: "Ne plus afficher",
+  },
+
   sterilisation: {
     title: "Stérilisation",
     subtitle: "Traçabilité des cycles d’autoclave",
