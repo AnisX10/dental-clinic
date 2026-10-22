@@ -506,6 +506,7 @@ export default {
     recherche: "بحث (الاسم، الرقم الوطني، الانتساب)…",
     notes_lbl: "ملاحظات",
     patient: "المريض",
+    print_sign_praticien: "توقيع الطبيب",
   },
 
   devis: {
@@ -534,6 +535,8 @@ export default {
     non_editable: "لم يعد هذا العرض قابلاً للتعديل.",
     reporter_traitements: "تحويل إلى علاجات",
     notes_lbl: "ملاحظات",
+    print_sign_praticien: "توقيع الطبيب",
+    print_accord: "موافقة المريض",
   },
 
   sterilisation: {

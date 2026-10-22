@@ -269,27 +269,27 @@ function printDevis() {
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
 
     <!-- Detail -->
-    <div v-if="current" class="card print-area" style="max-width:760px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+    <div v-if="current" class="card print-area dv-card" style="max-width:760px;">
+      <AppPrintLetter :settings="clinic" />
+      <div class="dv-meta">
         <div>
-          <strong style="font-size:16px;">{{ clinic?.clinic_name || "" }}</strong>
-          <div class="small muted">{{ clinic?.doctor_name }}</div>
-          <div class="small muted">{{ clinic?.address }}</div>
+          <p v-if="currentPatient" class="dv-patient">
+            <strong>{{ currentPatient.nom }} {{ currentPatient.prenom }}</strong>
+            <span class="small muted" style="margin-inline-start:8px;">{{ currentPatient.telephone }}</span>
+          </p>
+          <p class="small muted" style="margin:0;">
+            {{ t("documents.date") }} : {{ dates.fmtDate(current.issue_date) }}
+            <template v-if="current.due_date">
+              <span style="margin-inline-start:12px;">{{ t("devis.validite") }} : {{ dates.fmtDate(current.due_date) }}</span>
+            </template>
+          </p>
         </div>
-        <div style="text-align:end;">
+        <div class="no-print" style="text-align:end;">
           <span :class="statusBadge(current.status)" style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;background:var(--color-surface-2);">
             {{ t(STATUS_KEYS[current.status] ?? "devis.etat_brouillon") }}
           </span>
-          <div class="small muted" style="margin-top:6px;">
-            {{ dates.fmtDate(current.issue_date) }}
-          </div>
         </div>
       </div>
-      <hr style="border:none;border-top:1px solid var(--color-border);margin:16px 0;">
-      <p v-if="currentPatient" style="margin-bottom:12px;">
-        <strong>{{ currentPatient.nom }} {{ currentPatient.prenom }}</strong>
-        <span class="small muted" style="margin-inline-start:8px;">{{ currentPatient.telephone }}</span>
-      </p>
 
       <!-- Items: read / edit -->
       <div v-if="editing">
@@ -345,10 +345,15 @@ function printDevis() {
           {{ t("devis.validite") }} : {{ dates.fmtDate(current.due_date) }}
         </p>
         <p v-if="current.notes" class="small muted" style="margin-top:12px;">{{ current.notes }}</p>
+        <AppPrintFoot
+          date=""
+          :date-caption="t('documents.date')"
+          :signs="[t('devis.print_sign_praticien'), t('devis.print_accord')]"
+        />
       </div>
 
       <div v-if="detailError" class="alert alert-error" style="margin-top:12px;">{{ t(detailError) }}</div>
-      <div class="dialog-actions" style="margin-top:16px;">
+      <div class="dialog-actions no-print" style="margin-top:16px;">
         <button class="btn btn-secondary" @click="current = null">{{ t("common.back") }}</button>
         <!-- draft actions -->
         <template v-if="current.status === 'draft'">
@@ -367,7 +372,7 @@ function printDevis() {
         </template>
         <button v-if="!editing" class="btn btn-secondary" @click="printDevis">{{ t("common.print") }}</button>
       </div>
-      <p v-if="isLocked && !editing" class="small muted" style="margin-top:8px;">{{ t("devis.non_editable") }}</p>
+      <p v-if="isLocked && !editing" class="small muted no-print" style="margin-top:8px;">{{ t("devis.non_editable") }}</p>
     </div>
 
     <!-- List -->
@@ -485,3 +490,27 @@ function printDevis() {
     </AppDialog>
   </div>
 </template>
+
+<style scoped>
+.dv-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.dv-patient {
+  margin: 0 0 4px;
+}
+
+@media print {
+  .dv-card {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    background: #fff;
+  }
+}
+</style>

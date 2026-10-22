@@ -266,35 +266,31 @@ async function deleteAct(a: Act) {
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
 
     <!-- Detail: printable sheet -->
-    <div v-if="current" class="card print-area" style="max-width:760px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+    <div v-if="current" class="card print-area dsp-card" style="max-width:760px;">
+      <AppPrintLetter :settings="clinic" />
+      <div class="dsp-meta">
         <div>
-          <strong style="font-size:16px;">{{ clinic?.clinic_name || "" }}</strong>
-          <div class="small muted">{{ clinic?.doctor_name }}</div>
-          <div class="small muted">{{ clinic?.address }}</div>
-          <div class="small muted" style="font-variant-numeric:tabular-nums;">{{ clinic?.phone }}</div>
+          <p class="dsp-patient">
+            <strong>{{ current.patient.nom }} {{ current.patient.prenom }}</strong>
+            <span class="small muted" style="margin-inline-start:8px;">
+              {{ t("dsp.nin") }}: {{ current.insured_nin || "—" }}
+            </span>
+            <span class="small muted" style="margin-inline-start:8px;">
+              {{ t("dsp.affiliation") }}: {{ current.affiliation_no || "—" }}
+            </span>
+          </p>
+          <p class="small" style="margin:0;">
+            {{ t("dsp.premiere_consultation") }} : {{ dates.fmtDate(current.first_act_date) }}
+            <span class="muted" style="margin-inline-start:8px;">{{ t("dsp.echeance") }} : {{ dates.fmtDate(deadlineDate) }}</span>
+          </p>
         </div>
         <div style="text-align:end;">
           <div class="badge" style="margin-bottom:6px;">{{ current.caisse }}</div>
-          <div :class="deadlineClass(current)" style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;background:var(--color-surface-2);">
+          <div class="no-print" :class="deadlineClass(current)" style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;background:var(--color-surface-2);">
             {{ deadlineLabel(current) }}
           </div>
         </div>
       </div>
-      <hr style="border:none;border-top:1px solid var(--color-border);margin:16px 0;">
-      <p style="margin-bottom:12px;">
-        <strong>{{ current.patient.nom }} {{ current.patient.prenom }}</strong>
-        <span class="small muted" style="margin-inline-start:8px;">
-          {{ t("dsp.nin") }}: {{ current.insured_nin || "—" }}
-        </span>
-        <span class="small muted" style="margin-inline-start:8px;">
-          {{ t("dsp.affiliation") }}: {{ current.affiliation_no || "—" }}
-        </span>
-      </p>
-      <p class="small" style="margin-bottom:16px;">
-        {{ t("dsp.premiere_consultation") }} : {{ dates.fmtDate(current.first_act_date) }}
-        <span class="muted" style="margin-inline-start:8px;">{{ t("dsp.echeance") }} : {{ dates.fmtDate(deadlineDate) }}</span>
-      </p>
 
       <table class="table">
         <thead>
@@ -305,7 +301,7 @@ async function deleteAct(a: Act) {
             <th>{{ t("dsp.acte_code") }}</th>
             <th>{{ t("dsp.acte_coefficient") }}</th>
             <th class="num" style="text-align:end;">{{ t("dsp.acte_honoraires") }}</th>
-            <th style="width:1%;" />
+            <th class="no-print" style="width:1%;" />
           </tr>
         </thead>
         <tbody>
@@ -316,7 +312,7 @@ async function deleteAct(a: Act) {
             <td class="small muted">{{ a.act_code }}</td>
             <td class="small" style="font-variant-numeric:tabular-nums;">{{ a.coefficient }}</td>
             <td style="text-align:end;font-variant-numeric:tabular-nums;">{{ money.fmt(a.fee) }}</td>
-            <td style="width:1%;white-space:nowrap;">
+            <td class="no-print" style="width:1%;white-space:nowrap;">
               <button class="btn btn-text btn-sm" @click="openEditAct(a)">{{ t("common.edit") }}</button>
               <button class="btn btn-text btn-sm" style="color:var(--color-danger);" @click="deleteAct(a)">
                 {{ t("common.delete") }}
@@ -342,7 +338,13 @@ async function deleteAct(a: Act) {
 
       <p v-if="current.notes" class="small muted" style="margin-top:12px;">{{ current.notes }}</p>
 
-      <div class="dialog-actions" style="margin-top:16px;">
+      <AppPrintFoot
+        date=""
+        :date-caption="t('documents.date')"
+        :signs="[t('dsp.print_sign_praticien')]"
+      />
+
+      <div class="dialog-actions no-print" style="margin-top:16px;">
         <button class="btn btn-secondary" @click="current = null">{{ t("common.back") }}</button>
         <button class="btn btn-primary" @click="openAddAct">{{ t("dsp.ajouter_acte") }}</button>
         <button class="btn btn-primary" @click="printSheet">{{ t("dsp.imprimer") }}</button>
@@ -518,3 +520,27 @@ async function deleteAct(a: Act) {
     </AppDialog>
   </div>
 </template>
+
+<style scoped>
+.dsp-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.dsp-patient {
+  margin: 0 0 4px;
+}
+
+@media print {
+  .dsp-card {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    background: #fff;
+  }
+}
+</style>

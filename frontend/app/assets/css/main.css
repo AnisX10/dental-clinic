@@ -863,7 +863,7 @@ a.alert-row.sub:hover { color: var(--color-danger); }
   .toast-enter-active, .toast-leave-active, .dialog-enter-active, .dialog-leave-active { transition: none; }
 }
 
-/* Global Print Styles (prescriptions, certificates, invoices) */
+/* Global Print Styles (prescriptions, certificates, invoices, devis, DSP) */
 @media print {
   body, html {
     background: #ffffff !important;
@@ -881,6 +881,9 @@ a.alert-row.sub:hover { color: var(--color-danger); }
   }
   .sidebar, .sidebar-scrim, .sidebar-toggle, .page-header, .no-print, header, aside {
     display: none !important;
+  }
+  .table tr {
+    break-inside: avoid;
   }
 }
 

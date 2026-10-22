@@ -506,6 +506,7 @@ export default {
     recherche: "Rechercher (nom, NIN, affiliation)…",
     notes_lbl: "Notes",
     patient: "Patient",
+    print_sign_praticien: "Signature du praticien",
   },
 
   devis: {
@@ -534,6 +535,8 @@ export default {
     non_editable: "Ce devis n’est plus modifiable.",
     reporter_traitements: "Reporter en traitements",
     notes_lbl: "Notes",
+    print_sign_praticien: "Signature du praticien",
+    print_accord: "Bon pour accord",
   },
 
   sterilisation: {
