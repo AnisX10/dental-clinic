@@ -208,6 +208,30 @@ function printDoc() {
   window.print()
 }
 
+// ---- Continued-page running head ------------------------------------------
+// Chromium print has no per-page margin boxes, so a repeated header is done
+// with the reliable table trick: for long ordonnances the sheet becomes a
+// table whose first section is a table-header-group, which Chrome repeats on
+// every printed page. Short docs keep the flex layout (footer bottom-anchored).
+const sheetEl = ref<HTMLElement | null>(null)
+const isPaged = ref(false)
+
+async function measurePaged() {
+  await nextTick()
+  try { await document.fonts.ready } catch { /* ignore */ }
+  const sheet = sheetEl.value
+  if (!sheet || !current.value || current.value.doc_type !== "ordonnance" || editing.value) {
+    isPaged.value = false
+    return
+  }
+  // Screen sheet has 26px top/bottom padding that print drops; the print page
+  // box offers ~1032px (297mm - 2 x 12mm @96dpi). Only switch modes when the
+  // letterhead + content clearly exceeds one page.
+  isPaged.value = sheet.scrollHeight - 52 > 1000
+}
+
+watch([current, editing], () => { void measurePaged() })
+
 const route = useRoute()
 
 onMounted(async () => {
@@ -275,77 +299,108 @@ onMounted(async () => {
     <template v-else>
       <!-- Preview / print: shared HKN letterhead for every document type -->
       <div v-if="current" class="card print-area" style="max-width:720px;">
-        <div class="ord-sheet">
-          <div class="ord-header">
-            <div class="ord-brand">
-              <img src="/ordonnance-mark.svg" alt="" class="ord-logo" aria-hidden="true">
-              <div class="ord-brandtext">
-                <span class="ord-brand-hkn">HKN</span>
-                <span class="ord-brand-sub">Dental Care</span>
-              </div>
-            </div>
-            <div class="ord-doctor">
-              <div class="ord-doctor-name">{{ settings?.doctor_name }}</div>
-              <div v-if="settings?.header_note" class="ord-doctor-sub">{{ settings?.header_note }}</div>
-            </div>
-          </div>
-          <div class="ord-clinic-info">
-            <div v-if="settings?.address" class="ord-contact">
-              <svg class="ord-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 21.2c4.2-4.3 7-7.6 7-11a7 7 0 1 0-14 0c0 3.4 2.8 6.7 7 11Z" />
-                <circle cx="12" cy="10" r="2.6" />
-              </svg>
-              <span>{{ settings.address }}</span>
-            </div>
-            <div v-if="settings?.phone" class="ord-contact">
-              <svg class="ord-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7 12.8 12.8 0 0 0 .7 2.8 2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4 12.8 12.8 0 0 0 2.8.7 2 2 0 0 1 1.7 2Z" />
-              </svg>
-              <span>{{ settings.phone }}</span>
-            </div>
-            <div v-if="settings?.clinic_name" class="ord-clinic-name">{{ settings.clinic_name }}</div>
-          </div>
-          <hr class="ord-rule">
-
-          <div class="ord-patient">
-            <p class="ord-line-label">
-              {{ t("documents.nom_prenom") }} : <strong>{{ patient?.nom }} {{ patient?.prenom }}</strong>
-              <span class="ord-code">{{ patient?.code }}</span>
-            </p>
-            <template v-if="current.doc_type === 'ordonnance'">
-              <template v-if="editing">
-                <div class="field" style="margin-bottom:6px;">
-                  <label for="ord-age">{{ t("documents.age") }}</label>
-                  <input id="ord-age" v-model="editForm.age" class="input" style="max-width:120px;">
+        <div ref="sheetEl" class="ord-sheet" :class="{ 'ord-ispaged': isPaged }">
+          <thead class="ord-runhead" aria-hidden="true">
+            <tr>
+              <td colspan="2" class="ord-rh-cell">
+                <div class="ord-rh-in">
+                  <span>
+                    <strong>{{ t(`documents.${current.doc_type}`) }}</strong>
+                    · {{ patient?.nom }} {{ patient?.prenom }} ({{ patient?.code }})
+                  </span>
+                  <span v-if="settings?.clinic_name" class="ord-rh-end">{{ settings.clinic_name }}</span>
                 </div>
-                <div class="field" style="margin-bottom:6px;">
-                  <label>{{ t("documents.sexe") }}</label>
-                  <div style="display:flex;gap:8px;align-items:center;">
-                    <button
-                      type="button"
-                      class="ord-sexbtn"
-                      :class="{ 'ord-sexbtn-on': editForm.sexe === 'M' }"
-                      @click="editForm.sexe = editForm.sexe === 'M' ? '' : 'M'"
-                    >M</button>
-                    <button
-                      type="button"
-                      class="ord-sexbtn"
-                      :class="{ 'ord-sexbtn-on': editForm.sexe === 'F' }"
-                      @click="editForm.sexe = editForm.sexe === 'F' ? '' : 'F'"
-                    >F</button>
+              </td>
+            </tr>
+          </thead>
+          <tbody class="ord-headbody">
+            <tr class="ord-hrow">
+              <td colspan="2" class="ord-hcell">
+                <div class="ord-header">
+                  <div class="ord-brand">
+                    <img src="/ordonnance-mark.svg" alt="" class="ord-logo" aria-hidden="true">
+                    <div class="ord-brandtext">
+                      <span class="ord-brand-hkn">HKN</span>
+                      <span class="ord-brand-sub">Dental Care</span>
+                    </div>
+                  </div>
+                  <div class="ord-doctor">
+                    <div class="ord-doctor-name">{{ settings?.doctor_name }}</div>
+                    <div v-if="settings?.header_note" class="ord-doctor-sub">{{ settings?.header_note }}</div>
                   </div>
                 </div>
-              </template>
-              <template v-else>
-                <p class="ord-line-label">{{ t("documents.age") }} : {{ current.content?.age || "—" }}</p>
-                <p class="ord-line-label">
-                  {{ t("documents.sexe") }} :
-                  <span class="ord-sexbox" :class="{ 'ord-sexbox-on': current.content?.sexe === 'M' }">M</span>
-                  <span class="ord-sexbox" style="margin-inline-start:6px;" :class="{ 'ord-sexbox-on': current.content?.sexe === 'F' }">F</span>
-                </p>
-              </template>
-            </template>
-          </div>
+              </td>
+            </tr>
+            <tr class="ord-hrow">
+              <td colspan="2" class="ord-hcell">
+                <div class="ord-clinic-info">
+                  <div v-if="settings?.address" class="ord-contact">
+                    <svg class="ord-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 21.2c4.2-4.3 7-7.6 7-11a7 7 0 1 0-14 0c0 3.4 2.8 6.7 7 11Z" />
+                      <circle cx="12" cy="10" r="2.6" />
+                    </svg>
+                    <span>{{ settings.address }}</span>
+                  </div>
+                  <div v-if="settings?.phone" class="ord-contact">
+                    <svg class="ord-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7 12.8 12.8 0 0 0 .7 2.8 2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4 12.8 12.8 0 0 0 2.8.7 2 2 0 0 1 1.7 2Z" />
+                    </svg>
+                    <span>{{ settings.phone }}</span>
+                  </div>
+                  <div v-if="settings?.clinic_name" class="ord-clinic-name">{{ settings.clinic_name }}</div>
+                </div>
+              </td>
+            </tr>
+            <tr class="ord-hrow">
+              <td colspan="2" class="ord-hcell"><hr class="ord-rule"></td>
+            </tr>
+            <tr class="ord-hrow">
+              <td colspan="2" class="ord-hcell">
+                <div class="ord-patient">
+                  <p class="ord-line-label">
+                    {{ t("documents.nom_prenom") }} : <strong>{{ patient?.nom }} {{ patient?.prenom }}</strong>
+                    <span class="ord-code">{{ patient?.code }}</span>
+                  </p>
+                  <template v-if="current.doc_type === 'ordonnance'">
+                    <template v-if="editing">
+                      <div class="field" style="margin-bottom:6px;">
+                        <label for="ord-age">{{ t("documents.age") }}</label>
+                        <input id="ord-age" v-model="editForm.age" class="input" style="max-width:120px;">
+                      </div>
+                      <div class="field" style="margin-bottom:6px;">
+                        <label>{{ t("documents.sexe") }}</label>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                          <button
+                            type="button"
+                            class="ord-sexbtn"
+                            :class="{ 'ord-sexbtn-on': editForm.sexe === 'M' }"
+                            @click="editForm.sexe = editForm.sexe === 'M' ? '' : 'M'"
+                          >M</button>
+                          <button
+                            type="button"
+                            class="ord-sexbtn"
+                            :class="{ 'ord-sexbtn-on': editForm.sexe === 'F' }"
+                            @click="editForm.sexe = editForm.sexe === 'F' ? '' : 'F'"
+                          >F</button>
+                        </div>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <p class="ord-line-label">{{ t("documents.age") }} : {{ current.content?.age || "—" }}</p>
+                      <p class="ord-line-label">
+                        {{ t("documents.sexe") }} :
+                        <span class="ord-sexbox" :class="{ 'ord-sexbox-on': current.content?.sexe === 'M' }">M</span>
+                        <span class="ord-sexbox" style="margin-inline-start:6px;" :class="{ 'ord-sexbox-on': current.content?.sexe === 'F' }">F</span>
+                      </p>
+                    </template>
+                  </template>
+                </div>
+              </td>
+            </tr>
+            <tr class="ord-spacer">
+              <td colspan="2"></td>
+            </tr>
+          </tbody>
 
           <div class="ord-content">
             <div class="ord-watermark" aria-hidden="true">
@@ -368,7 +423,6 @@ onMounted(async () => {
                 <ol class="ord-list">
                   <li v-for="(line, idx) in current.content?.lines ?? []" :key="idx">{{ line }}</li>
                 </ol>
-                <p v-if="current.content?.note" class="ord-note">{{ current.content.note }}</p>
               </template>
             </template>
 
@@ -394,17 +448,30 @@ onMounted(async () => {
             </template>
           </div>
 
-          <div class="ord-footer">
-            <div class="ord-footer-slot">
-              <div class="ord-date-value">{{ dates.fmtDate(current.created_at) }}</div>
-              <hr class="ord-signrule">
-              <div class="ord-caption">{{ t("documents.date") }}</div>
-            </div>
-            <div class="ord-footer-slot ord-footer-end">
-              <hr class="ord-signrule">
-              <div class="ord-caption">{{ t("documents.signature") }}</div>
-            </div>
-          </div>
+          <tbody class="ord-footbody">
+            <tr class="ord-hrow">
+              <td colspan="2" class="ord-hcell">
+                <p v-if="current.doc_type === 'ordonnance' && current.content?.note" class="ord-note">
+                  {{ current.content.note }}
+                </p>
+              </td>
+            </tr>
+            <tr class="ord-hrow">
+              <td colspan="2" class="ord-hcell">
+                <div class="ord-footer">
+                  <div class="ord-footer-slot">
+                    <div class="ord-date-value">{{ dates.fmtDate(current.created_at) }}</div>
+                    <hr class="ord-signrule">
+                    <div class="ord-caption">{{ t("documents.date") }}</div>
+                  </div>
+                  <div class="ord-footer-slot ord-footer-end">
+                    <hr class="ord-signrule">
+                    <div class="ord-caption">{{ t("documents.signature") }}</div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
         </div>
 
         <div class="dialog-actions no-print" style="margin-top:16px;">
@@ -747,6 +814,118 @@ onMounted(async () => {
   font-size: 12px;
   letter-spacing: 0.3px;
   color: #0040dc;
+}
+
+/* ---- Continued-page running head (print only) ---------------------------- */
+/* The letterhead is marked up with real thead/tbody/tr/td so Chromium print
+   can repeat the running head and span sections correctly; neutralize the
+   table semantics everywhere except the multi-page print mode. */
+.ord-sheet > .ord-runhead {
+  display: none;
+}
+
+.ord-sheet :is(thead, tbody, tr, td) {
+  display: block;
+}
+
+.ord-sheet td {
+  padding: 0;
+}
+
+.ord-rh-in {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  color: #0040dc;
+}
+
+.ord-rh-end {
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+@media print {
+  .ord-sheet.ord-ispaged {
+    display: table;
+    width: 100%;
+    min-height: 0;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+  }
+
+  .ord-sheet.ord-ispaged thead {
+    display: table-header-group;
+  }
+
+  .ord-sheet.ord-ispaged tbody {
+    display: table-row-group;
+  }
+
+  .ord-sheet.ord-ispaged tr {
+    display: table-row;
+  }
+
+  .ord-sheet.ord-ispaged td {
+    display: table-cell;
+    vertical-align: baseline;
+  }
+
+  .ord-sheet.ord-ispaged .ord-rh-cell {
+    padding-bottom: 5px;
+    border-bottom: 0.7px solid rgba(0, 64, 220, 0.45);
+    vertical-align: bottom;
+  }
+
+  .ord-sheet.ord-ispaged .ord-spacer > td {
+    height: 22px;
+  }
+
+  /* Long ordonnance body: atomic list rows that fragment between items */
+  .ord-sheet.ord-ispaged .ord-content {
+    display: table-row-group;
+    min-height: 0;
+    margin: 0;
+  }
+
+  .ord-sheet.ord-ispaged .ord-content > .ord-watermark {
+    position: fixed;
+    inset: auto;
+    top: 36%;
+    left: 0;
+    right: 0;
+    width: 340px;
+    margin: 0 auto;
+    z-index: -1;
+  }
+
+  .ord-sheet.ord-ispaged .ord-watermark-img {
+    max-width: none;
+  }
+
+  .ord-sheet.ord-ispaged .ord-list {
+    display: table-row-group;
+    margin: 0;
+    padding-inline-start: 0;
+    counter-reset: ord-item;
+  }
+
+  .ord-sheet.ord-ispaged .ord-list > li {
+    display: table-row;
+    list-style: none;
+    margin-bottom: 0;
+    padding-inline-start: 0;
+  }
+
+  .ord-sheet.ord-ispaged .ord-list > li::before {
+    content: counter(ord-item) ".";
+    counter-increment: ord-item;
+    display: table-cell;
+    padding-inline-end: 8px;
+    vertical-align: baseline;
+  }
 }
 
 @media print {
