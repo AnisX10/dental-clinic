@@ -21,7 +21,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 
-INCLUDE_DIRS = ("backend", "frontend", "tools", "docs")
+INCLUDE_DIRS = ("backend", "frontend", "scripts", "tools", "docs")
 
 EXCLUDE_DIR_NAMES = {
     "__pycache__",
@@ -36,6 +36,7 @@ EXCLUDE_DIR_NAMES = {
     "test-results",
     "pgdata",
     "reference",
+    "scratch",
     "e2e",
     "tests",
     ".pytest_cache",
@@ -47,14 +48,17 @@ EXCLUDE_SUFFIXES = (".lic", ".log")
 EXCLUDE_FILES = {".env", "alembic.ini.bak", "cli_dev_fingerprint.json"}
 
 
-def keep(path: Path) -> bool:
+def keep(path: Path, include_build: bool = False) -> bool:
     rel = path.relative_to(REPO)
-    first = rel.parts[0]
-    if first not in INCLUDE_DIRS and rel.name not in ("DEPLOY.md", "README.md", "pyrightconfig.json"):
-        return False
-    if any(p in EXCLUDE_DIR_NAMES for p in rel.parts):
-        if rel.parts[:2] == ("tools", "license"):
+    if len(rel.parts) == 1:
+        if rel.name not in ("DEPLOY.md", "README.md", "pyrightconfig.json"):
             return False
+    elif rel.parts[0] not in INCLUDE_DIRS:
+        return False
+
+    if include_build and rel.parts[:3] == ("frontend", ".output", "public"):
+        pass
+    elif any(p in EXCLUDE_DIR_NAMES for p in rel.parts):
         return False
     if path.suffix.lower() in EXCLUDE_SUFFIXES:
         return False
@@ -67,6 +71,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--name", default=None, help="zip base name (default: clinic-app-YYYYMMDD)")
     parser.add_argument("--out", default=None, help="output directory (default: repo parent)")
+    parser.add_argument("--force", action="store_true", help="overwrite existing zip if it exists")
+    parser.add_argument("--include-build", action="store_true", help="include precompiled frontend/.output/public")
     args = parser.parse_args()
 
     stamp = datetime.now(UTC).strftime("%Y%m%d")
@@ -76,10 +82,13 @@ def main() -> int:
     zip_path = out_dir / f"{name}.zip"
 
     if zip_path.exists():
-        print(f"refusing to overwrite existing {zip_path}")
-        return 2
+        if args.force:
+            zip_path.unlink()
+        else:
+            print(f"refusing to overwrite existing {zip_path}")
+            return 2
 
-    files = [p for p in REPO.rglob("*") if p.is_file() and keep(p)]
+    files = [p for p in REPO.rglob("*") if p.is_file() and keep(p, include_build=args.include_build)]
     if not files:
         print("nothing to package")
         return 3
