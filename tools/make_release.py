@@ -61,7 +61,7 @@ EXCLUDE_FILES = {
 def keep(path: Path, include_build: bool = False) -> bool:
     rel = path.relative_to(REPO)
     if len(rel.parts) == 1:
-        if rel.name not in ("DEPLOY.md", "README.md", "pyrightconfig.json"):
+        if rel.name not in ("DEPLOY.md", "README.md", "INSTALLATION_GUIDE.md", "install.bat", "pyrightconfig.json"):
             return False
     elif rel.parts[0] not in INCLUDE_DIRS:
         return False
@@ -119,6 +119,7 @@ def main() -> int:
         REPO / "scripts" / "start_silent.vbs",
         REPO / "scripts" / "stop.bat",
         REPO / "scripts" / "create_desktop_shortcut.bat",
+        REPO / "scripts" / "install.bat",
     }
     missing_scripts = [str(s.relative_to(REPO)) for s in required_scripts if s not in files]
     if missing_scripts:
