@@ -26,7 +26,7 @@ echo sc.TargetPath = ws.ExpandEnvironmentStrings("%%SystemRoot%%\System32\wscrip
 echo sc.Arguments = """" ^& "%VBS_SCRIPT%" ^& """ /app"
 echo sc.WorkingDirectory = "%ROOT_DIR%"
 echo sc.Description = "HKN Dentaire - Application de gestion de cabinet dentaire"
-echo Dim browser, p, candidates(9^)
+echo Dim browser, p, candidates(11^)
 echo On Error Resume Next
 echo candidates(0^) = ws.RegRead("HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe\"^)
 echo candidates(1^) = ws.RegRead("HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe\"^)
@@ -34,10 +34,12 @@ echo candidates(2^) = ws.RegRead("HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion
 echo candidates(3^) = ws.RegRead("HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe\"^)
 echo candidates(4^) = ws.ExpandEnvironmentStrings("%%ProgramFiles(x86)%%\Microsoft\Edge\Application\msedge.exe"^)
 echo candidates(5^) = ws.ExpandEnvironmentStrings("%%ProgramFiles%%\Microsoft\Edge\Application\msedge.exe"^)
-echo candidates(6^) = ws.ExpandEnvironmentStrings("%%ProgramFiles%%\Google\Chrome\Application\chrome.exe"^)
-echo candidates(7^) = ws.ExpandEnvironmentStrings("%%ProgramFiles(x86)%%\Google\Chrome\Application\chrome.exe"^)
-echo candidates(8^) = ws.ExpandEnvironmentStrings("%%LocalAppData%%\Microsoft\Edge\Application\msedge.exe"^)
-echo candidates(9^) = ws.ExpandEnvironmentStrings("%%LocalAppData%%\Google\Chrome\Application\chrome.exe"^)
+echo candidates(6^) = ws.ExpandEnvironmentStrings("%%ProgramW6432%%\Microsoft\Edge\Application\msedge.exe"^)
+echo candidates(7^) = ws.ExpandEnvironmentStrings("%%ProgramFiles%%\Google\Chrome\Application\chrome.exe"^)
+echo candidates(8^) = ws.ExpandEnvironmentStrings("%%ProgramFiles(x86)%%\Google\Chrome\Application\chrome.exe"^)
+echo candidates(9^) = ws.ExpandEnvironmentStrings("%%ProgramW6432%%\Google\Chrome\Application\chrome.exe"^)
+echo candidates(10^) = ws.ExpandEnvironmentStrings("%%LocalAppData%%\Microsoft\Edge\Application\msedge.exe"^)
+echo candidates(11^) = ws.ExpandEnvironmentStrings("%%LocalAppData%%\Google\Chrome\Application\chrome.exe"^)
 echo For Each p In candidates
 echo   If p ^<^> "" Then
 echo     p = Replace(p, """", ""^)

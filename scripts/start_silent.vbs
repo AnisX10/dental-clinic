@@ -42,7 +42,7 @@ If Not IsServerReady() Then
     shell.CurrentDirectory = rootDir
     Dim comspec
     comspec = shell.ExpandEnvironmentStrings("%COMSPEC%")
-    shell.Run """" & comspec & """ /c """"" & batPath & """""", 0, False
+    shell.Run """" & comspec & """ /c """"" & batPath & """ --no-pause""", 0, False
 End If
 
 ' In app mode, poll until server is ready and launch browser in app window
@@ -57,13 +57,19 @@ If isAppMode Then
         WScript.Sleep 500
     Next
 
-    Dim browserPath
-    browserPath = FindAppBrowser()
+    If ready Then
+        Dim browserPath
+        browserPath = FindAppBrowser()
 
-    If browserPath <> "" Then
-        shell.Run """" & browserPath & """ --app=http://127.0.0.1:8000", 1, False
+        If browserPath <> "" Then
+            shell.Run """" & browserPath & """ --app=http://127.0.0.1:8000", 1, False
+        Else
+            shell.Run "http://127.0.0.1:8000", 1, False
+        End If
     Else
-        shell.Run "http://127.0.0.1:8000", 1, False
+        MsgBox "Le serveur HKN Dentaire n'a pas pu démarrer dans le délai imparti." & vbCrLf & vbCrLf & _
+               "Veuillez exécuter 'scripts\start.bat' pour vérifier les messages d'erreur.", _
+               vbCritical, "HKN Dentaire"
     End If
 End If
 
@@ -118,17 +124,19 @@ Function FindAppBrowser()
     Err.Clear
 
     ' Check standard directory paths
-    Dim paths(5)
+    Dim paths(7)
     paths(0) = shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe")
     paths(1) = shell.ExpandEnvironmentStrings("%ProgramFiles%\Microsoft\Edge\Application\msedge.exe")
-    paths(2) = shell.ExpandEnvironmentStrings("%ProgramFiles%\Google\Chrome\Application\chrome.exe")
-    paths(3) = shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe")
-    paths(4) = shell.ExpandEnvironmentStrings("%LocalAppData%\Microsoft\Edge\Application\msedge.exe")
-    paths(5) = shell.ExpandEnvironmentStrings("%LocalAppData%\Google\Chrome\Application\chrome.exe")
+    paths(2) = shell.ExpandEnvironmentStrings("%ProgramW6432%\Microsoft\Edge\Application\msedge.exe")
+    paths(3) = shell.ExpandEnvironmentStrings("%ProgramFiles%\Google\Chrome\Application\chrome.exe")
+    paths(4) = shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe")
+    paths(5) = shell.ExpandEnvironmentStrings("%ProgramW6432%\Google\Chrome\Application\chrome.exe")
+    paths(6) = shell.ExpandEnvironmentStrings("%LocalAppData%\Microsoft\Edge\Application\msedge.exe")
+    paths(7) = shell.ExpandEnvironmentStrings("%LocalAppData%\Google\Chrome\Application\chrome.exe")
 
     Dim p
     For Each p In paths
-        If fso.FileExists(p) Then
+        If p <> "" And fso.FileExists(p) Then
             FindAppBrowser = p
             On Error GoTo 0
             Exit Function

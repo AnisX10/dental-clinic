@@ -10,4 +10,4 @@ set PY=%cd%\.venv\Scripts\python.exe
 if not exist "%PY%" set PY=python
 
 "%PY%" -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000
-pause
+if /i "%1" neq "--no-pause" if /i "%1" neq "/nopause" pause
