@@ -63,6 +63,7 @@ def create_payment(
         detail={"patient_id": payment.patient_id, "amount": serialize_amount(payment.amount)},
         ip=get_client_ip(request),
     )
+    db.commit()
     return {"payment": {"id": payment.id, "amount": serialize_amount(payment.amount)}}
 
 

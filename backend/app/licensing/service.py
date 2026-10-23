@@ -70,7 +70,15 @@ def license_file() -> Path:
     override = os.environ.get("CLINIC_LICENSE_FILE")
     if override:
         return Path(override)
-    return get_settings().data_dir / "license.lic"
+    target = get_settings().data_dir / "license.lic"
+    if target.is_file():
+        return target
+    data_dir = get_settings().data_dir
+    if data_dir.is_dir():
+        lics = sorted(data_dir.glob("*.lic"))
+        if lics:
+            return lics[0]
+    return target
 
 
 def installation_getter() -> str:

@@ -60,6 +60,7 @@ test("payment lands in the patient ledger", async ({ page }) => {
   await page.getByRole("button", { name: "Encaisser un paiement" }).first().click();
   await page.fill("#pay-amount", "1500");
   await page.locator(".dialog-actions .btn-primary").click();
+  await expect(page.locator(".dialog")).toBeHidden();
 
   await expect(page.locator(".money-row").filter({ hasText: "Payé" }).locator(".money-value"))
     .toContainText(/1[\u202f\u00a0 ]?500\s+DA/);

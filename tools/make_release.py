@@ -15,6 +15,7 @@ seller issues the .lic at the clinic after init-prod.
 """
 
 import argparse
+import sys
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -45,7 +46,15 @@ EXCLUDE_DIR_NAMES = {
     "license",
 }
 EXCLUDE_SUFFIXES = (".lic", ".log")
-EXCLUDE_FILES = {".env", "alembic.ini.bak", "cli_dev_fingerprint.json"}
+EXCLUDE_FILES = {
+    ".env",
+    ".gitignore",
+    "alembic.ini.bak",
+    "cli_dev_fingerprint.json",
+    "seed_demo_tmp.py",
+    "seed_qa_tmp.py",
+    "e2e_bootstrap.py",
+}
 
 
 def keep(path: Path, include_build: bool = False) -> bool:
@@ -74,6 +83,16 @@ def main() -> int:
     parser.add_argument("--force", action="store_true", help="overwrite existing zip if it exists")
     parser.add_argument("--include-build", action="store_true", help="include precompiled frontend/.output/public")
     args = parser.parse_args()
+
+    if args.include_build:
+        index_file = REPO / "frontend" / ".output" / "public" / "index.html"
+        if not index_file.is_file():
+            print(
+                f"ERROR: --include-build requested but {index_file} was not found.\n"
+                "Run `npm run generate` inside frontend/ first.",
+                file=sys.stderr,
+            )
+            return 5
 
     stamp = datetime.now(UTC).strftime("%Y%m%d")
     name = args.name or f"clinic-app-{stamp}"
