@@ -61,7 +61,7 @@ EXCLUDE_FILES = {
 def keep(path: Path, include_build: bool = False) -> bool:
     rel = path.relative_to(REPO)
     if len(rel.parts) == 1:
-        if rel.name not in ("DEPLOY.md", "README.md", "INSTALLATION_GUIDE.md", "install.bat", "pyrightconfig.json"):
+        if rel.name not in ("DEPLOY.md", "README.md", "INSTALLATION_GUIDE.md", "HKN_Dentaire_Installation_Guide.pdf", "install.bat", "pyrightconfig.json"):
             return False
     elif rel.parts[0] not in INCLUDE_DIRS:
         return False
