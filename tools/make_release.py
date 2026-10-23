@@ -1,10 +1,11 @@
-"""Build a customer-delivery zip of the clinic application.
+r"""Build a customer-delivery zip of the clinic application.
 
 Usage: .venv\\Scripts\\python tools\\make_release.py [--out PATH] [--name NAME]
 
 Produces a zip that contains ONLY what a clinic needs per DEPLOY.md:
 - backend source (app, migrations, tests are excluded; requirements.txt kept)
 - frontend source
+- convenience scripts (scripts\start.bat, scripts\start_silent.vbs, scripts\stop.bat, scripts\create_desktop_shortcut.bat, scripts\start.sh)
 - tools\\cli.py and the package script itself (docs kept, licence keys excluded)
 - DEPLOY.md + docs\\sales.md
 Excludes: .git, e2e, tests, data runtime files, tools\\license\\ (private key
@@ -111,6 +112,18 @@ def main() -> int:
     if not files:
         print("nothing to package")
         return 3
+
+    required_scripts = {
+        REPO / "scripts" / "start.bat",
+        REPO / "scripts" / "start.sh",
+        REPO / "scripts" / "start_silent.vbs",
+        REPO / "scripts" / "stop.bat",
+        REPO / "scripts" / "create_desktop_shortcut.bat",
+    }
+    missing_scripts = [str(s.relative_to(REPO)) for s in required_scripts if s not in files]
+    if missing_scripts:
+        print(f"ERROR: missing required convenience scripts: {missing_scripts}", file=sys.stderr)
+        return 6
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for f in files:

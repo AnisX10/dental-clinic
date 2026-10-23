@@ -74,9 +74,40 @@ start. The database (PostgreSQL 16, bundled launcher) initializes itself in
 
 ---
 
-## 3. Daily start
+## 3. Daily start & Desktop integration
+
+### Option A: Desktop Shortcut (recommended for daily clinic use)
+
+Run **`scripts\create_desktop_shortcut.bat`** once on the server PC.
+
+- Creates an **HKN Dentaire** shortcut directly on the current user's Windows Desktop.
+- Double-clicking the shortcut:
+  1. Starts the clinic service silently in the background (if not already running).
+  2. Opens the application in a clean, borderless app-window mode (`msedge.exe --app=http://127.0.0.1:8000` or `chrome.exe --app=http://127.0.0.1:8000`).
+- If the server is already running, clicking the shortcut opens the app window immediately without spawning duplicate processes.
+
+### Option B: Silent Background Start
+
+Double-click **`scripts\start_silent.vbs`**.
+
+- Launches `scripts\start.bat` invisibly (window style 0) so the Command Prompt does not clutter the clinic taskbar or risk accidental closure.
+
+### Stopping the Server
+
+Double-click **`scripts\stop.bat`**.
+
+- Gracefully stops any running uvicorn clinic process on port 8000 and terminates launcher processes.
+
+### Option C: Console Start (diagnostics)
 
 Double-click **`scripts\start.bat`**.
+
+- Starts the application with a visible Command Prompt window showing server logs.
+- Close the window to stop the app.
+
+---
+
+### LAN Access (other PCs)
 
 - The application listens on **http://127.0.0.1:8000** on the server PC.
 - Other PCs on the LAN open **http://SERVER-PC-IP:8000** in the browser
@@ -85,7 +116,7 @@ Double-click **`scripts\start.bat`**.
   networks only), or run once as admin:
   `netsh advfirewall firewall add rule name="Clinic 8000" dir=in action=allow protocol=TCP localport=8000`
 
-Close the window to stop the app. The database survives restarts.
+The database survives restarts.
 
 ---
 
@@ -194,5 +225,7 @@ section 5 manually before restarting the app.
 - [ ] Clinic name/doctor filled in **Paramètres**
 - [ ] Backup hour confirmed, one manual backup run, restore drill done
 - [ ] Second PC can open the app over the LAN
+- [ ] Desktop shortcut created via `scripts\create_desktop_shortcut.bat` on the server PC
+- [ ] Verified `scripts\stop.bat` stops the service cleanly
 - [ ] `data\backups` reachable and included in the USB copy routine
 - [ ] Server PC set to never sleep during clinic hours
