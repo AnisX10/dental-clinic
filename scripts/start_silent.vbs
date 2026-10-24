@@ -49,12 +49,12 @@ End If
 If isAppMode Then
     Dim attempts, ready
     ready = False
-    For attempts = 1 To 30
+    For attempts = 1 To 60
         If IsServerReady() Then
             ready = True
             Exit For
         End If
-        WScript.Sleep 500
+        WScript.Sleep 1000
     Next
 
     If ready Then
@@ -67,8 +67,8 @@ If isAppMode Then
             shell.Run "http://127.0.0.1:8000", 1, False
         End If
     Else
-        MsgBox "Le serveur HKN Dentaire n'a pas pu démarrer dans le délai imparti." & vbCrLf & vbCrLf & _
-               "Veuillez exécuter 'scripts\start.bat' pour vérifier les messages d'erreur.", _
+        MsgBox "Le serveur HKN Dentaire n'a pas pu demarrer dans le delai imparti." & vbCrLf & vbCrLf & _
+               "Veuillez d'abord executer 'install.bat' a la racine pour installer l'application, ou lancer 'scripts\start.bat' pour verifier les messages d'erreur.", _
                vbCritical, "HKN Dentaire"
     End If
 End If
