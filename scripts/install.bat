@@ -22,7 +22,7 @@ echo Ce programme va configurer l'application sur cet ordinateur.
 echo Aucun acces a Internet n'est requis si le dossier est complet.
 echo.
 
-echo [Etape 1/4] Detection de Python 3.11...
+echo [Etape 1/4] Detection de l'environnement Python et Base de donnees...
 
 set "TARGET_PY="
 set "WRONG_VER_PY="
@@ -58,7 +58,7 @@ if not defined TARGET_PY (
     )
 )
 
-rem If Python 3.11 is not found, check if a newer incompatible Python (3.12, 3.13) or older is present
+rem If Python 3.11 is not found, check what Python is available
 if not defined TARGET_PY (
     where py >nul 2>&1
     if not errorlevel 1 (
@@ -85,24 +85,33 @@ if not defined TARGET_PY (
     )
 )
 
-rem If an incompatible Python version is detected, warn the user clearly
+rem If Python 3.12+ is present, test if PostgreSQL is running on port 5432
+if not defined TARGET_PY if defined WRONG_VER_PY (
+    "!WRONG_VER_PY!" -c "import socket; s = socket.create_connection(('127.0.0.1', 5432), timeout=0.4); s.close()" >nul 2>&1
+    if not errorlevel 1 (
+        echo  - Serveur PostgreSQL detecte sur le port 5432.
+        echo  - Utilisation automatique de PostgreSQL avec !WRONG_VER_PY!
+        set "TARGET_PY=!WRONG_VER_PY!"
+    )
+)
+
+rem If an incompatible Python version is detected WITHOUT PostgreSQL
 if not defined TARGET_PY if defined WRONG_VER_PY (
     for /f "delims=" %%v in ('"!WRONG_VER_PY!" --version 2^>^&1') do set "DETECTED_VER=%%v"
     echo.
     echo =======================================================================
-    echo  [ATTENTION] Version de Python incompatible detectee : !DETECTED_VER!
+    echo  [ATTENTION] !DETECTED_VER! detecte sans base de donnees compatible
     echo =======================================================================
     echo.
-    echo Ce PC possede !DETECTED_VER!, mais la base de donnees embarquee
-    echo sans installation necessite imperativement Python 3.11.
+    echo Deux options simples s'offrent a vous pour continuer :
     echo.
-    echo Pour resoudre ce probleme simplement :
-    echo   1. Telechargez ou lancez l'installateur 'python-3.11.9-amd64.exe'.
-    echo   2. Installez Python 3.11 (en cochant "Add python.exe to PATH").
-    echo   3. Relancez cet assistant d'installation.
+    echo OPTION 1 (Recommandee - Zero installation de base de donnees) :
+    echo   Installez Python 3.11 (fichier python-3.11.9-amd64.exe).
+    echo   La base de donnees integree fonctionnera alors automatiquement.
     echo.
-    echo Note : Vous pouvez conserver votre version actuelle de Python,
-    echo Python 3.11 s'installe a cote sans aucun conflit.
+    echo OPTION 2 (Garder !DETECTED_VER!) :
+    echo   Installez PostgreSQL pour Windows (port 5432).
+    echo   L'application s'y connectera alors automatiquement avec !DETECTED_VER!.
     echo.
     pause
     exit /b 1
@@ -112,22 +121,22 @@ rem If nothing was detected at all
 if not defined TARGET_PY (
     echo.
     echo =======================================================================
-    echo  [ATTENTION] Python 3.11 n'a pas ete trouve sur cet ordinateur !
+    echo  [ATTENTION] Python n'a pas ete trouve sur cet ordinateur !
     echo =======================================================================
     echo.
-    echo Pour continuer, veuillez installer Python 3.11 :
+    echo Pour continuer, installez Python 3.11 :
     echo   1. Lancez l'installateur 'python-3.11.9-amd64.exe'.
-    echo   2. IMPORTANT : Sur le premier ecran, cochez la case en bas :
+    echo   2. IMPORTANT : Cochez imperativement la case en bas :
     echo      [x] "Add python.exe to PATH"
     echo   3. Cliquez sur "Install Now".
-    echo   4. Relancez ensuite cet installateur.
+    echo   4. Relancez cet assistant d'installation.
     echo.
     pause
     exit /b 1
 )
 
 for /f "delims=" %%v in ('"!TARGET_PY!" --version 2^>^&1') do set "PY_VER=%%v"
-echo  - Python 3.11 detecte : !TARGET_PY! (!PY_VER!)
+echo  - Python selectionne : !TARGET_PY! (!PY_VER!)
 echo.
 
 rem Step 2: Virtual environment

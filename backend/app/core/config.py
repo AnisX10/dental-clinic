@@ -19,7 +19,11 @@ APP_VERSION = "1.0.0"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", env_prefix="CLINIC_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(PROJECT_ROOT / ".env", BASE_DIR / ".env"),
+        env_prefix="CLINIC_",
+        extra="ignore",
+    )
 
     app_name: str = "Cabinet Dentaire"
     # Empty => use the bundled local PostgreSQL (pgserver) stored under data/pgdata.

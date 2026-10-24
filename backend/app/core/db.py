@@ -47,11 +47,36 @@ def _ensure_local_postgres() -> str:
     return uri
 
 
+def _probe_native_postgres() -> str | None:
+    """If local PostgreSQL 5432 is running, use it automatically (works on Python 3.12+ without pgserver)."""
+    import socket
+    try:
+        with socket.create_connection(("127.0.0.1", 5432), timeout=0.4):
+            pass
+    except (OSError, socket.timeout):
+        return None
+    for auth in ("postgres", "postgres:postgres", "postgres:admin", "postgres:clinic", "postgres:root"):
+        test_url = f"postgresql+psycopg://{auth}@127.0.0.1:5432/postgres"
+        try:
+            probe = create_engine(test_url, pool_pre_ping=True, connect_args={"connect_timeout": 1})
+            with probe.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            probe.dispose()
+            logger.info("Auto-detected active native PostgreSQL on port 5432 (%s)", auth)
+            return _ensure_database(test_url, "clinic")
+        except Exception:
+            continue
+    return None
+
+
 def _configured_url() -> str:
     settings = get_settings()
     url = settings.database_url or os.environ.get("DATABASE_URL", "")
     if url:
         return url
+    native = _probe_native_postgres()
+    if native:
+        return native
     local = _ensure_local_postgres()
     # Own dedicated database instead of the default `postgres` one.
     return _ensure_database(local, "clinic")
