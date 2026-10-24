@@ -16,6 +16,24 @@ if not exist "%PY%" (
     exit /b 1
 )
 
+rem Pre-flight: Check if server is already running on port 8000
+call :CheckPort8000
+if "!PORT_8000_ALREADY_ACTIVE!"=="1" (
+    echo =======================================================================
+    echo  [INFO] Le serveur HKN Dentaire est DEJA en cours d'execution !
+    echo =======================================================================
+    echo.
+    echo L'application est deja active sur : http://127.0.0.1:8000
+    echo Ouverture de l'application dans votre navigateur...
+    start http://127.0.0.1:8000
+    echo.
+    echo Pour arreter ou redemarrer le serveur :
+    echo   - Double-cliquez sur "stop.bat"
+    echo.
+    if /i "%~1" neq "--no-pause" pause
+    exit /b 0
+)
+
 echo =======================================================================
 echo          HKN Dentaire - Demarrage du serveur local
 echo =======================================================================
@@ -38,3 +56,21 @@ if %EXIT_CODE% neq 0 (
     if /i "%~1" neq "--no-pause" pause
 )
 exit /b %EXIT_CODE%
+
+:CheckPort8000
+set "PORT_8000_ALREADY_ACTIVE=0"
+"%PY%" -c "import socket; s = socket.socket(); s.settimeout(0.3); res = s.connect_ex(('127.0.0.1', 8000)); s.close(); exit(0 if res == 0 else 1)" >nul 2>&1
+if errorlevel 1 exit /b 0
+
+rem Port 8000 is open. Check if health check responds.
+"%PY%" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=1)" >nul 2>&1
+if not errorlevel 1 (
+    set "PORT_8000_ALREADY_ACTIVE=1"
+    exit /b 0
+)
+
+rem Port 8000 is occupied but not responding, kill stale process
+echo [INFO] Port 8000 occupe par un ancien processus. Nettoyage en cours...
+call "%~dp0stop.bat" >nul 2>&1
+ping -n 2 127.0.0.1 >nul 2>&1
+exit /b 0
