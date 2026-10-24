@@ -31,7 +31,10 @@ rem Priority 1: Check Python 3.11 specifically via py launcher
 where py >nul 2>&1
 if not errorlevel 1 (
     for /f "delims=" %%p in ('py -3.11 -c "import sys; print(sys.executable)" 2^>nul') do (
-        if exist "%%p" set "TARGET_PY=%%p"
+        if exist "%%p" (
+            "%%p" --version >nul 2>&1
+            if not errorlevel 1 set "TARGET_PY=%%p"
+        )
     )
 )
 
@@ -42,7 +45,10 @@ if not defined TARGET_PY (
         "C:\Program Files\Python311\python.exe"
         "C:\Python311\python.exe"
     ) do (
-        if not defined TARGET_PY if exist %%d set "TARGET_PY=%%~d"
+        if not defined TARGET_PY if exist %%d (
+            %%d --version >nul 2>&1
+            if not errorlevel 1 set "TARGET_PY=%%~d"
+        )
     )
 )
 
@@ -86,61 +92,59 @@ if not defined TARGET_PY (
 )
 
 rem If Python 3.12+ is present, test if PostgreSQL is running on port 5432
-if not defined TARGET_PY if defined WRONG_VER_PY (
-    "!WRONG_VER_PY!" -c "import socket; s = socket.create_connection(('127.0.0.1', 5432), timeout=0.4); s.close()" >nul 2>&1
-    if not errorlevel 1 (
-        echo  - Serveur PostgreSQL detecte sur le port 5432.
-        echo  - Utilisation automatique de PostgreSQL avec !WRONG_VER_PY!
-        set "TARGET_PY=!WRONG_VER_PY!"
-    )
-)
+if not defined TARGET_PY if defined WRONG_VER_PY call :ProbePostgres
 
-rem If an incompatible Python version is detected WITHOUT PostgreSQL
-if not defined TARGET_PY if defined WRONG_VER_PY (
-    for /f "delims=" %%v in ('"!WRONG_VER_PY!" --version 2^>^&1') do set "DETECTED_VER=%%v"
-    echo.
-    echo =======================================================================
-    echo  [ATTENTION] !DETECTED_VER! detecte sans base de donnees compatible
-    echo =======================================================================
-    echo.
-    echo Deux options simples s'offrent a vous pour continuer :
-    echo.
-    echo OPTION 1 (Recommandee - Zero installation de base de donnees) :
-    echo   Installez Python 3.11 (fichier python-3.11.9-amd64.exe).
-    echo   La base de donnees integree fonctionnera alors automatiquement.
-    echo.
-    echo OPTION 2 (Garder !DETECTED_VER!) :
-    echo   Installez PostgreSQL pour Windows (port 5432).
-    echo   L'application s'y connectera alors automatiquement avec !DETECTED_VER!.
-    echo.
-    pause
-    exit /b 1
-)
+rem If still not defined but WRONG_VER_PY exists, show incompatible Python message
+if not defined TARGET_PY if defined WRONG_VER_PY goto :ShowIncompatiblePython
 
-rem If nothing was detected at all
-if not defined TARGET_PY (
-    echo.
-    echo =======================================================================
-    echo  [ATTENTION] Python n'a pas ete trouve sur cet ordinateur !
-    echo =======================================================================
-    echo.
-    echo Pour continuer, installez Python 3.11 :
-    echo   1. Lancez l'installateur 'python-3.11.9-amd64.exe'.
-    echo   2. IMPORTANT : Cochez imperativement la case en bas :
-    echo      [x] "Add python.exe to PATH"
-    echo   3. Cliquez sur "Install Now".
-    echo   4. Relancez cet assistant d'installation.
-    echo.
-    pause
-    exit /b 1
-)
+rem If nothing was detected at all, show missing Python message
+if not defined TARGET_PY goto :ShowMissingPython
 
+goto :PythonFound
+
+:ShowIncompatiblePython
+for /f "delims=" %%v in ('"!WRONG_VER_PY!" --version 2^>^&1') do set "DETECTED_VER=%%v"
+echo.
+echo =======================================================================
+echo  [ATTENTION] !DETECTED_VER! detecte sans base de donnees compatible
+echo =======================================================================
+echo.
+echo Deux options simples s'offrent a vous pour continuer :
+echo.
+echo OPTION 1 [Recommandee - Zero installation de base de donnees] :
+echo   Installez Python 3.11 [fichier python-3.11.9-amd64.exe].
+echo   La base de donnees integree fonctionnera alors automatiquement.
+echo.
+echo OPTION 2 [Garder !DETECTED_VER!] :
+echo   Installez PostgreSQL pour Windows [port 5432].
+echo   L'application s'y connectera alors automatiquement avec !DETECTED_VER!.
+echo.
+pause
+exit /b 1
+
+:ShowMissingPython
+echo.
+echo =======================================================================
+echo  [ATTENTION] Python n'a pas ete trouve sur cet ordinateur !
+echo =======================================================================
+echo.
+echo Pour continuer, installez Python 3.11 :
+echo   1. Lancez l'installateur 'python-3.11.9-amd64.exe'.
+echo   2. IMPORTANT : Cochez imperativement la case en bas :
+echo      [x] "Add python.exe to PATH"
+echo   3. Cliquez sur "Install Now".
+echo   4. Relancez cet assistant d'installation.
+echo.
+pause
+exit /b 1
+
+:PythonFound
 for /f "delims=" %%v in ('"!TARGET_PY!" --version 2^>^&1') do set "PY_VER=%%v"
 echo  - Python selectionne : !TARGET_PY! (!PY_VER!)
 echo.
 
 rem Step 2: Virtual environment
-echo [Etape 2/4] Preparation de l'environnement virtuel (.venv)...
+echo [Etape 2/4] Preparation de l'environnement virtuel .venv...
 if not exist ".venv\Scripts\python.exe" (
     "!TARGET_PY!" -m venv .venv
     if errorlevel 1 (
@@ -195,10 +199,22 @@ echo =======================================================================
 echo.
 echo Pour demarrer :
 echo   - Double-cliquez sur l'icone "HKN Dentaire" sur votre Bureau.
+echo   - Ou double-cliquez sur "start.bat" dans ce dossier.
 echo   - Identifiant : %DOC_USER%
-echo   - Mot de passe : (celui saisi ci-dessus)
+echo   - Mot de passe : [celui choisi ci-dessus]
 echo.
 echo Si l'application vous demande une licence lors de la premiere ouverture,
 echo transmettez simplement le "Numero d'installation" affiche a l'ecran.
 echo.
 pause
+exit /b 0
+
+:ProbePostgres
+if not defined WRONG_VER_PY exit /b 0
+"!WRONG_VER_PY!" -c "import socket; s = socket.socket(); s.settimeout(0.3); s.connect(('127.0.0.1', 5432)); s.close()" >nul 2>&1
+if not errorlevel 1 (
+    echo  - Serveur PostgreSQL detecte sur le port 5432.
+    echo  - Utilisation automatique de PostgreSQL avec !WRONG_VER_PY!
+    set "TARGET_PY=!WRONG_VER_PY!"
+)
+exit /b 0
