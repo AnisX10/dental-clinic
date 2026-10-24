@@ -1,145 +1,94 @@
-# HKN Dentaire — Installation & User Guide Book
-### The Complete Step-by-Step Guide for Dental Clinics
+# HKN Dentaire — Guide d'Installation & Utilisation
+### Guide complet pas à pas pour les cabinets dentaires
 
-Welcome to **HKN Dentaire**! This guide is written in plain, simple language for dentists, clinic managers, and assistants. You do not need to be a software developer or IT expert to install and run this application.
+Bienvenue dans **HKN Dentaire** ! Ce guide est conçu en langage clair et simple pour les chirurgiens-dentistes, gestionnaires de cabinets et assistant(e)s. 
 
----
-
-## 📋 What You Need Before You Start
-
-Everything runs **100% locally on your computer**. No internet connection is needed during normal clinic operations.
-
-You only need:
-1. **A Windows PC** (Windows 10 or 11) with at least 4 GB of RAM.
-2. **Python 3.11** (the installer file `python-3.11.x-amd64.exe` is usually included on your installation USB drive).
-3. **The Software Package** (`clinic-app-standalone-20261023.zip`).
+> [!NOTE]
+> **Zero prérequis technique :** Vous n'avez PAS besoin d'installer Python, ni de base de données, ni de configurer des variables d'environnement. Tout le moteur est 100% autonome et pré-embarqué dans l'application.
 
 ---
 
-## 🚀 Fast 1-Click Installation (Recommended)
+## 📋 Prérequis matériels
 
-Follow these **4 simple steps**:
+L'application fonctionne **100% en local sur votre ordinateur** sans connexion Internet requise.
 
-### Step 1: Install Python (2 Minutes)
-If Python is not already installed on your computer:
-1. Double-click the Python installer file (`python-3.11.x-amd64.exe`).
-2. ⚠️ **VERY IMPORTANT:** At the bottom of the first setup screen, check the box that says:
-   ```
-   [x] Add python.exe to PATH
-   ```
-3. Click **Install Now** and wait for it to finish.
-4. Click **Close**.
+Vous avez uniquement besoin de :
+1. **Un PC sous Windows** (Windows 10 ou Windows 11).
+2. **Le package logiciel** (`clinicfinal2026.zip`).
 
 ---
 
-### Step 2: Unzip the Software
-1. Create a folder directly on your main drive: `C:\clinic`
-2. Extract the contents of your software ZIP file into this `C:\clinic` folder.
-   *(You should now see folders like `backend`, `frontend`, `scripts`, and a file named `install.bat`).*
+## 🚀 Installation Express en 1 Clic
+
+### Étape 1 : Décompresser l'archive
+1. Créez un dossier sur votre disque principal (ex : `C:\clinic` ou sur votre Bureau).
+2. Extrayez l'intégralité du fichier `clinicfinal2026.zip` dans ce dossier.
+   *(Vous y trouverez les fichiers `start.bat`, `install.bat`, `stop.bat` et le dossier `runtime`).*
 
 ---
 
-### Step 3: Run the 1-Click Installer
-1. Inside `C:\clinic`, double-click:
+### Étape 2 : Lancer l'assistant d'installation
+1. Double-cliquez sur :
    👉 **`install.bat`**
-2. A window will appear and handle the setup automatically:
-   - It verifies that Python is ready.
-   - It sets up the internal clinic system.
-   - It will ask you for 3 quick details:
-     - **Doctor's Name** *(e.g., `Dr. Benali Amine`)*
-     - **Username for login** *(e.g., `dentiste`)*
-     - **Password** *(e.g., your personal password)*
-3. It will automatically create an **"HKN Dentaire"** icon on your Windows Desktop!
+2. Le programme configure le cabinet en quelques secondes :
+   - Détection automatique de l'environnement portable embarqué.
+   - Saisie rapide des coordonnées du praticien (ou appuyez sur Entrée pour les valeurs par défaut) :
+     - **Nom du médecin** *(ex : Dr. Benali Amine)*
+     - **Identifiant de connexion** *(ex : dentiste)*
+     - **Mot de passe** *(ex : Cabinet2026!)*
+3. Le raccourci **"HKN Dentaire"** est automatiquement créé sur votre Bureau Windows !
+4. L'application se lance immédiatement prête à l'emploi.
+
+> [!TIP]
+> **Démarrage direct sans installation :** Vous pouvez également double-cliquer directement sur **`start.bat`** ! L'application initialise automatiquement la base de données, active la licence intégrée et s'ouvre dans votre navigateur sans aucune question. Identifiant par défaut : `dentiste` / Mot de passe : `Cabinet2026!`.
 
 ---
 
-### Step 4: First-Time Activation (30 Seconds)
-1. Double-click the new **HKN Dentaire** icon on your Desktop.
-2. The application opens in its own window.
-3. Because this is a new installation, you will see the **Licence inactive** screen displaying your unique:
-   ```
-   Installation ID: e.g. cf7a4f1b3c5049d1b82e8506f2e25cfb
-   ```
-4. Simply send or read this Installation ID to your software provider.
-5. They will send you your clinic's license file (e.g., `cabinet-nom.lic`).
-6. Click **"Installer la licence"** on the screen, select the file, and click Open.
+## 🖥️ Utilisation quotidienne
 
-🎉 **Congratulations!** Your clinic system is activated and ready for patients.
+### Comment ouvrir l'application
+- Double-cliquez simplement sur le raccourci **HKN Dentaire** sur votre Bureau Windows.
+- L'application s'ouvre dans une fenêtre d'application dédiée et épurée (style natif sans barre d'onglets).
 
----
-
-## 🖥️ Daily Clinic Routine
-
-### How to Open the App
-- Just double-click the **HKN Dentaire** shortcut on your Desktop.
-- The app launches directly into its clean, distraction-free window.
-
-### Connecting a Second Computer (Reception Desk)
-If your clinic has a reception desk or a second computer in the treatment room:
-1. Connect both computers to the clinic's local Wi-Fi or router network. *(Internet connection is NOT required, just local network).*
-2. On the main server PC, open Command Prompt and type `ipconfig` to find its local IP (for example: `192.168.1.15`).
-3. On the reception PC, open Chrome or Edge and go to:
+### Connecter un second ordinateur (Poste Réception / Secrétariat)
+Si votre cabinet dispose d'un poste d'accueil ou d'une seconde salle de soins :
+1. Connectez les deux ordinateurs au même réseau local (box Wi-Fi du cabinet ou câble réseau).
+2. Sur le PC principal, ouvrez l'invite de commande et tapez `ipconfig` pour noter son adresse IP locale (ex : `192.168.1.15`).
+3. Sur le PC de réception, ouvrez Chrome ou Edge et rendez-vous sur :
    ```
    http://192.168.1.15:8000
    ```
-4. The receptionist can log in using their own reception account!
+4. L'assistant(e) peut se connecter avec son propre compte !
 
-### How to Close the App
-- You can simply close the browser window when leaving.
-- If you wish to shut down the background server completely at the end of the day, double-click:
-  `C:\clinic\scripts\stop.bat`
+### Comment fermer l'application
+- Vous pouvez simplement fermer la fenêtre à la fin de votre journée.
+- Pour stopper complètement le serveur d'arrière-plan, double-cliquez sur :
+  👉 **`stop.bat`**
 
 ---
 
-## 💾 Backups & Safety (Protecting Patient Records)
+## 💾 Sauvegardes & Sécurité des données
 
-Your clinic's data is precious. HKN Dentaire includes built-in automated protection:
+Les dossiers médicaux de vos patients sont protégés automatiquement :
 
-### Automatic Daily Backup
-- Every evening at **20:00 (8:00 PM)**, the application automatically creates a complete backup of all patients, treatments, notes, and financial records into:
-  `C:\clinic\data\backups\`
-- You can change the backup hour anytime in **Paramètres → Sauvegarde**.
+### Sauvegarde automatique quotidienne
+- Chaque soir à **20h00**, le système effectue une sauvegarde complète et chiffrée de tous les patients, actes, odontogrammes et paiements dans :
+  `data\backups\`
+- Vous pouvez modifier l'heure de sauvegarde à tout moment dans **Paramètres → Sauvegarde**.
 
-### Manual Instant Backup (Before Leaving)
-1. In the app menu, go to **Paramètres**.
-2. Scroll to the **Sauvegarde** section.
-3. Click **"Sauvegarder maintenant"**.
-4. A confirmation message will appear with the date and file size.
+### Sauvegarde manuelle instantanée
+1. Dans le menu de l'application, cliquez sur **Paramètres**.
+2. Dans la section **Sauvegarde**, cliquez sur **"Sauvegarder maintenant"**.
 
 > [!TIP]
-> **Best Practice:** Keep an inexpensive USB flash drive plugged into your computer and copy the `C:\clinic\data\backups` folder onto it once a week. If your computer ever breaks or gets lost, your clinic records can be restored in 5 minutes!
+> **Conseil sécurité :** Branchez une clé USB sur votre ordinateur et copiez le dossier `data\backups` dessus régulièrement. En cas de panne matérielle de votre PC, l'intégralité de votre cabinet est récupérable en 5 minutes.
 
 ---
 
-## 🖨️ Printing Prescriptions & Documents
+## 🖨️ Impression des ordonnances et devis
 
-When printing ordonnances, medical certificates, or devis:
-1. The first time you click **Imprimer**, a small reminder dialog will open.
-2. In the Google Chrome / Microsoft Edge print window:
-   - **Margins:** Select **"Default"** *(Par défaut)*.
-   - **Options:** Make sure **"Background graphics"** *(Graphiques d'arrière-plan)* is **checked**.
-3. This ensures clinic logos, watermarks, and header lines print crisp and centered on A4 paper.
-
----
-
-## ❓ Troubleshooting & Frequently Asked Questions
-
-#### Q1: When I double-click `install.bat`, it says Python is not detected.
-- **Fix:** You need to install Python 3.11. Run the installer `python-3.11.x-amd64.exe` and make sure you check the box at the bottom: **[x] Add python.exe to PATH**. Then re-run `install.bat`.
-
-#### Q2: The screen says "Port 8000 already in use".
-- **Fix:** Another copy of the app is already running! Go into `C:\clinic\scripts\` and double-click **`stop.bat`**, then reopen your Desktop icon.
-
-#### Q3: Can the clinic staff accidentally delete or overwrite files?
-- **No.** The application stores all data in a safe, structured database. Staff can only add, view, or update patient files according to their role (Dentist vs Receptionist).
-
-#### Q4: What happens if our clinic internet goes down?
-- **Nothing!** The software does not use the internet. You can continue consulting patients, recording treatments, and printing ordonnances without any interruption.
-
----
-
-## 📞 Support & License Re-issuance
-If you move your clinic software to a brand-new computer:
-1. Install following this guide.
-2. Provide your new Installation ID to your software provider.
-3. Your provider will issue an updated `.lic` file free of charge for your clinic.
+1. Lors du clic sur **Imprimer** :
+2. Dans la boîte de dialogue d'impression de votre navigateur :
+   - **Marges :** Sélectionnez **"Par défaut"**.
+   - **Options :** Cochez impérativement la case **"Graphiques d'arrière-plan"**.
+3. Vos ordonnances sortiront avec le logo du cabinet, le filigrane et les bordures parfaitement alignés au format A4.

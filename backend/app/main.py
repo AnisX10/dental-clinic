@@ -4,6 +4,7 @@ Serves the API and, in production, the built Nuxt SPA from the same origin
 (single port for the whole clinic: http://<server-ip>:8000).
 """
 import logging
+import os
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -146,9 +147,10 @@ def startup() -> None:
     else:
         logger.warning("Application LOCKED — no valid license (%s). Installation ID: %s", state.reason, service.installation_getter())
 
-    from app.backup.service import BackupScheduler
+    if not os.environ.get("PYTEST_CURRENT_TEST"):
+        from app.backup.service import BackupScheduler
 
-    BackupScheduler().start()
+        BackupScheduler().start()
 
 
 def _ensure_schema(db) -> None:

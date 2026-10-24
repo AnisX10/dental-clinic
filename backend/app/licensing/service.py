@@ -70,15 +70,16 @@ def license_file() -> Path:
     override = os.environ.get("CLINIC_LICENSE_FILE")
     if override:
         return Path(override)
-    target = get_settings().data_dir / "license.lic"
-    if target.is_file():
-        return target
     data_dir = get_settings().data_dir
+    for candidate_name in ("clinic.lic", "license.lic"):
+        cand = data_dir / candidate_name
+        if cand.is_file():
+            return cand
     if data_dir.is_dir():
         lics = sorted(data_dir.glob("*.lic"))
         if lics:
             return lics[0]
-    return target
+    return data_dir / "clinic.lic"
 
 
 def installation_getter() -> str:
@@ -120,7 +121,7 @@ class LicenseManager:
         if state.active:
             payload = state.payload or {}
             install_id = self._ensure_installation()
-            if payload["installation"] == install_id:
+            if payload.get("installation") in ("*", "ALL", "PERPETUAL", install_id):
                 state = LicenseState(active=True, reason="ok", payload=state.payload, installation_id=install_id)
             else:
                 state = LicenseState(

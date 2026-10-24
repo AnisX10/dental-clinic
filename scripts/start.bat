@@ -2,51 +2,38 @@
 rem Start the clinic application (single port :8000, API + UI).
 setlocal enabledelayedexpansion
 cd /d "%~dp0.."
+set "ROOT_DIR=%cd%"
 
-set "PY=%cd%\.venv\Scripts\python.exe"
-if not exist "%PY%" (
+rem Priority 1: Isolated portable runtime (zero prerequisite)
+if exist "%ROOT_DIR%\runtime\python.exe" (
+    set "PY=%ROOT_DIR%\runtime\python.exe"
+) else if exist "%ROOT_DIR%\.venv\Scripts\python.exe" (
+    set "PY=%ROOT_DIR%\.venv\Scripts\python.exe"
+) else (
     echo =======================================================================
-    echo  [ERREUR] L'application n'est pas encore installee sur ce PC !
+    echo  [ERREUR] Environnement d'execution introuvable !
     echo =======================================================================
     echo.
-    echo Le dossier d'environnement virtuel .venv n'a pas ete trouve.
-    echo Veuillez executer install.bat a la racine du dossier pour l'installer.
+    echo Le dossier 'runtime' ou '.venv' n'a pas ete trouve dans :
+    echo %ROOT_DIR%
     echo.
-    pause
+    echo Si vous venez de telecharger l'archive, verifiez que tous les fichiers
+    echo ont bien ete extraits.
+    echo.
+    if /i "%~1" neq "--no-pause" pause
     exit /b 1
 )
 
-rem Pre-flight: Check if server is already running on port 8000
-call :CheckPort8000
-if "!PORT_8000_ALREADY_ACTIVE!"=="1" (
-    echo =======================================================================
-    echo  [INFO] Le serveur HKN Dentaire est DEJA en cours d'execution !
-    echo =======================================================================
-    echo.
-    echo L'application est deja active sur : http://127.0.0.1:8000
-    echo Ouverture de l'application dans votre navigateur...
-    start http://127.0.0.1:8000
-    echo.
-    echo Pour arreter ou redemarrer le serveur :
-    echo   - Double-cliquez sur "stop.bat"
-    echo.
-    if /i "%~1" neq "--no-pause" pause
-    exit /b 0
-)
-
 echo =======================================================================
-echo          HKN Dentaire - Demarrage du serveur local
+echo          HKN Dentaire - Demarrage de l'application
 echo =======================================================================
 echo.
-echo Serveur actif sur : http://127.0.0.1:8000
-echo Base de donnees et fichiers stockes dans le dossier "data".
-echo.
-echo Gardez cette fenetre ouverte pendant l'utilisation du cabinet.
-echo Fermez cette fenetre pour arreter le serveur.
+echo Initialisation et verification de l'environnement...
 echo.
 
-"%PY%" -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000
+"%PY%" "%ROOT_DIR%\backend\app\launcher.py" %*
 set "EXIT_CODE=%ERRORLEVEL%"
+
 if %EXIT_CODE% neq 0 (
     echo.
     echo =======================================================================
@@ -56,21 +43,3 @@ if %EXIT_CODE% neq 0 (
     if /i "%~1" neq "--no-pause" pause
 )
 exit /b %EXIT_CODE%
-
-:CheckPort8000
-set "PORT_8000_ALREADY_ACTIVE=0"
-"%PY%" -c "import socket; s = socket.socket(); s.settimeout(0.3); res = s.connect_ex(('127.0.0.1', 8000)); s.close(); exit(0 if res == 0 else 1)" >nul 2>&1
-if errorlevel 1 exit /b 0
-
-rem Port 8000 is open. Check if health check responds.
-"%PY%" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=1)" >nul 2>&1
-if not errorlevel 1 (
-    set "PORT_8000_ALREADY_ACTIVE=1"
-    exit /b 0
-)
-
-rem Port 8000 is occupied but not responding, kill stale process
-echo [INFO] Port 8000 occupe par un ancien processus. Nettoyage en cours...
-call "%~dp0stop.bat" >nul 2>&1
-ping -n 2 127.0.0.1 >nul 2>&1
-exit /b 0

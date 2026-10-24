@@ -213,7 +213,11 @@ def _pg_restore_fatal(target_db: str, backup_path: Path) -> list[str]:
 
     url = get_engine().url
     bin_dir = _pg_dump_path()
-    pg_restore = str(Path(bin_dir) / "pg_restore") if bin_dir else "pg_restore"
+    if bin_dir:
+        exe = Path(bin_dir) / "pg_restore.exe"
+        pg_restore = str(exe) if exe.is_file() else str(Path(bin_dir) / "pg_restore")
+    else:
+        pg_restore = "pg_restore"
 
     cmd = [
         pg_restore,
@@ -228,6 +232,7 @@ def _pg_restore_fatal(target_db: str, backup_path: Path) -> list[str]:
     ]
     env = {
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
+        "PATH": f"{bin_dir};{os.environ.get('PATH', '')}" if bin_dir else os.environ.get("PATH", ""),
         "PGHOST": url.host or "127.0.0.1",
         "PGPORT": str(url.port or 5432),
         "PGUSER": url.username or "postgres",

@@ -38,3 +38,6 @@ if %ERRORLEVEL% neq 0 (
         )
     )
 )
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "Get-Process | Where-Object { $_.ProcessName -eq 'postgres' -and $_.Path -like '*pgserver*' } | Stop-Process -Force -ErrorAction SilentlyContinue" >nul 2>&1

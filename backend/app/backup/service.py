@@ -27,7 +27,30 @@ _last_run: dict = {}
 
 
 def _pg_dump_path() -> str | None:
-    """Locate pg_dump binary directory: bundled with pgserver first, then standard paths, then system PATH."""
+    """Locate pg_dump binary directory: system PostgreSQL first (newest version), then PATH, then bundled pgserver."""
+    candidates = []
+
+    for pg_root in (Path(r"C:\Program Files\PostgreSQL"), Path(r"C:\Program Files (x86)\PostgreSQL")):
+        if pg_root.is_dir():
+            for pg_dir in pg_root.glob("*/bin"):
+                exe = pg_dir / "pg_dump.exe"
+                if exe.is_file():
+                    try:
+                        ver = int(pg_dir.parent.name)
+                    except ValueError:
+                        ver = 0
+                    candidates.append((ver, str(pg_dir)))
+
+    if candidates:
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        return candidates[0][1]
+
+    from shutil import which
+
+    found = which("pg_dump")
+    if found:
+        return str(Path(found).parent)
+
     try:
         import pgserver  # pyright: ignore[reportMissingImports]
 
@@ -38,17 +61,6 @@ def _pg_dump_path() -> str | None:
                 return str(candidate)
     except Exception:
         pass
-    from shutil import which
-
-    found = which("pg_dump")
-    if found:
-        return str(Path(found).parent)
-
-    for pg_root in (Path(r"C:\Program Files\PostgreSQL"), Path(r"C:\Program Files (x86)\PostgreSQL")):
-        if pg_root.is_dir():
-            for pg_dir in pg_root.glob("*/bin"):
-                if (pg_dir / "pg_dump.exe").is_file():
-                    return str(pg_dir)
 
     return None
 
@@ -75,7 +87,11 @@ def run_backup(db: OrmSession, *, kind: str, reason: str = "") -> BackupRecord:
 
     url = get_engine().url.set(drivername="postgresql")
     bin_dir = _pg_dump_path()
-    pg_dump = (str(Path(bin_dir) / "pg_dump") if bin_dir else "pg_dump")
+    if bin_dir:
+        exe = Path(bin_dir) / "pg_dump.exe"
+        pg_dump = str(exe) if exe.is_file() else str(Path(bin_dir) / "pg_dump")
+    else:
+        pg_dump = "pg_dump"
 
     cmd = [
         pg_dump,
@@ -96,7 +112,7 @@ def run_backup(db: OrmSession, *, kind: str, reason: str = "") -> BackupRecord:
             text=True,
             timeout=600,
             env={
-                **_minimal_env(),
+                **_minimal_env(bin_dir),
                 "PGHOST": url.host or "127.0.0.1",
                 "PGPORT": str(url.port or 5432),
                 "PGUSER": url.username or "postgres",
@@ -177,7 +193,7 @@ def _copy_offsite(target: Path, kind: str, *, keep_daily: int, keep_manual: int)
         logger.warning("Offsite copy failed (%s): %s", off_dir, exc)
 
 
-def _minimal_env() -> dict:
+def _minimal_env(bin_dir: str | None = None) -> dict:
     import os
 
     keep = {}
@@ -185,6 +201,10 @@ def _minimal_env() -> dict:
         value = os.environ.get(key)
         if value:
             keep[key] = value
+    if bin_dir and "PATH" in keep:
+        keep["PATH"] = f"{bin_dir};{keep['PATH']}"
+    elif bin_dir:
+        keep["PATH"] = bin_dir
     return keep
 
 

@@ -40,9 +40,13 @@ End Function
 ' Start the server if it is not already running
 If Not IsServerReady() Then
     shell.CurrentDirectory = rootDir
-    Dim comspec
+    Dim comspec, extraArgs
     comspec = shell.ExpandEnvironmentStrings("%COMSPEC%")
-    shell.Run """" & comspec & """ /c """"" & batPath & """ --no-pause""", 0, False
+    extraArgs = "--no-pause"
+    If isAppMode Then
+        extraArgs = extraArgs & " --no-browser"
+    End If
+    shell.Run """" & comspec & """ /c call """ & batPath & """ " & extraArgs, 0, False
 End If
 
 ' In app mode, poll until server is ready and launch browser in app window
