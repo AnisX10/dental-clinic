@@ -26,7 +26,17 @@ _pgserver_db = None  # keep a reference so pgserver does not stop the server
 def _ensure_local_postgres() -> str:
     """Start/attach the bundled local PostgreSQL and return a database URL."""
     global _pgserver_db
-    import pgserver  # pyright: ignore[reportMissingImports]
+    try:
+        import pgserver  # pyright: ignore[reportMissingImports]
+    except ImportError:
+        import sys
+        err_msg = (
+            f"Python {sys.version_info.major}.{sys.version_info.minor} detecte. "
+            "Le moteur de base de donnees embarque sans installation (pgserver) necessite Python 3.11. "
+            "Veuillez installer Python 3.11 (par exemple python-3.11.9-amd64.exe) ou configurer CLINIC_DATABASE_URL."
+        )
+        logger.critical(err_msg)
+        raise RuntimeError(err_msg) from None
 
     settings = get_settings()
     pgdata = Path(settings.data_dir) / "pgdata"

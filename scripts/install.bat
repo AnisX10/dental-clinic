@@ -22,118 +22,112 @@ echo Ce programme va configurer l'application sur cet ordinateur.
 echo Aucun acces a Internet n'est requis si le dossier est complet.
 echo.
 
-echo [Etape 1/4] Detection automatique de Python...
+echo [Etape 1/4] Detection de Python 3.11...
 
 set "TARGET_PY="
+set "WRONG_VER_PY="
 
-rem Check 1: Python launcher py
+rem Priority 1: Check Python 3.11 specifically via py launcher
 where py >nul 2>&1
 if not errorlevel 1 (
-    for /f "delims=" %%p in ('py -3 -c "import sys; print(sys.executable)" 2^>nul') do (
-        if exist "%%p" (
-            "%%p" -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
-            if not errorlevel 1 set "TARGET_PY=%%p"
-        )
+    for /f "delims=" %%p in ('py -3.11 -c "import sys; print(sys.executable)" 2^>nul') do (
+        if exist "%%p" set "TARGET_PY=%%p"
     )
 )
 
-rem Check 2: Registry HKCU (CurrentUser installs)
+rem Priority 2: Check standard Python 3.11 paths directly
 if not defined TARGET_PY (
-    for /f "tokens=2*" %%a in ('reg query "HKCU\Software\Python\PythonCore" /reg:64 /s /v "ExecutablePath" 2^>nul ^| findstr /i "ExecutablePath"') do (
-        if exist "%%b" (
-            "%%b" -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
-            if not errorlevel 1 if not defined TARGET_PY set "TARGET_PY=%%b"
-        )
-    )
-)
-
-rem Check 3: Registry HKLM (AllUsers installs)
-if not defined TARGET_PY (
-    for /f "tokens=2*" %%a in ('reg query "HKLM\Software\Python\PythonCore" /reg:64 /s /v "ExecutablePath" 2^>nul ^| findstr /i "ExecutablePath"') do (
-        if exist "%%b" (
-            "%%b" -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
-            if not errorlevel 1 if not defined TARGET_PY set "TARGET_PY=%%b"
-        )
-    )
-)
-
-rem Check 4: Standard user & program files folders
-if not defined TARGET_PY (
-    for /d %%v in (
-        "%LocalAppData%\Programs\Python\Python3*"
-        "C:\Program Files\Python3*"
-        "C:\Python3*"
+    for %%d in (
+        "%LocalAppData%\Programs\Python\Python311\python.exe"
+        "C:\Program Files\Python311\python.exe"
+        "C:\Python311\python.exe"
     ) do (
-        if exist "%%v\python.exe" (
-            "%%v\python.exe" -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
-            if not errorlevel 1 if not defined TARGET_PY set "TARGET_PY=%%v\python.exe"
-        )
+        if not defined TARGET_PY if exist %%d set "TARGET_PY=%%~d"
     )
 )
 
-rem Check 5: Anaconda / Conda environments
+rem Priority 3: Check Registry for Python 3.11
 if not defined TARGET_PY (
-    for %%c in (
-        "%USERPROFILE%\anaconda3\python.exe"
-        "%USERPROFILE%\miniconda3\python.exe"
-        "C:\ProgramData\Anaconda3\python.exe"
-    ) do (
-        if exist %%c (
-            %%c -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
-            if not errorlevel 1 if not defined TARGET_PY set "TARGET_PY=%%~c"
-        )
+    for /f "tokens=2*" %%a in ('reg query "HKCU\Software\Python\PythonCore\3.11\InstallPath" /reg:64 /v "ExecutablePath" 2^>nul ^| findstr /i "ExecutablePath"') do (
+        if exist "%%b" set "TARGET_PY=%%b"
+    )
+)
+if not defined TARGET_PY (
+    for /f "tokens=2*" %%a in ('reg query "HKLM\Software\Python\PythonCore\3.11\InstallPath" /reg:64 /v "ExecutablePath" 2^>nul ^| findstr /i "ExecutablePath"') do (
+        if exist "%%b" set "TARGET_PY=%%b"
     )
 )
 
-rem Check 6: PATH command (excluding Microsoft Store dummy stub)
+rem If Python 3.11 is not found, check if a newer incompatible Python (3.12, 3.13) or older is present
 if not defined TARGET_PY (
-    for /f "delims=" %%p in ('where python 2^>nul') do (
-        echo "%%p" | findstr /i "WindowsApps" >nul
-        if errorlevel 1 (
-            if exist "%%p" (
-                "%%p" -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
-                if not errorlevel 1 if not defined TARGET_PY set "TARGET_PY=%%p"
+    where py >nul 2>&1
+    if not errorlevel 1 (
+        for /f "delims=" %%p in ('py -3 -c "import sys; print(sys.executable)" 2^>nul') do (
+            if exist "%%p" set "WRONG_VER_PY=%%p"
+        )
+    )
+    if not defined WRONG_VER_PY (
+        for /d %%v in (
+            "%LocalAppData%\Programs\Python\Python3*"
+            "C:\Program Files\Python3*"
+            "C:\Python3*"
+        ) do (
+            if exist "%%v\python.exe" set "WRONG_VER_PY=%%v\python.exe"
+        )
+    )
+    if not defined WRONG_VER_PY (
+        for /f "delims=" %%p in ('where python 2^>nul') do (
+            echo "%%p" | findstr /i "WindowsApps" >nul
+            if errorlevel 1 (
+                if exist "%%p" set "WRONG_VER_PY=%%p"
             )
         )
     )
 )
 
-rem Check 7: Manual input if still not found
-if not defined TARGET_PY (
+rem If an incompatible Python version is detected, warn the user clearly
+if not defined TARGET_PY if defined WRONG_VER_PY (
+    for /f "delims=" %%v in ('"!WRONG_VER_PY!" --version 2^>^&1') do set "DETECTED_VER=%%v"
     echo.
-    echo Python n'a pas ete trouve automatiquement dans les dossiers standards.
-    echo Si Python est installe dans un autre dossier, glissez-deposez
-    echo le fichier python.exe dans cette fenetre ou tapez son chemin complet.
-    set /p "CUSTOM_PY=[Chemin complet vers python.exe, ou appuyez sur Entree] : "
-    if defined CUSTOM_PY (
-        set "CUSTOM_PY=!CUSTOM_PY:"=!"
-        if exist "!CUSTOM_PY!" (
-            "!CUSTOM_PY!" -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
-            if not errorlevel 1 set "TARGET_PY=!CUSTOM_PY!"
-        )
-    )
+    echo =======================================================================
+    echo  [ATTENTION] Version de Python incompatible detectee : !DETECTED_VER!
+    echo =======================================================================
+    echo.
+    echo Ce PC possede !DETECTED_VER!, mais la base de donnees embarquee
+    echo sans installation necessite imperativement Python 3.11.
+    echo.
+    echo Pour resoudre ce probleme simplement :
+    echo   1. Telechargez ou lancez l'installateur 'python-3.11.9-amd64.exe'.
+    echo   2. Installez Python 3.11 (en cochant "Add python.exe to PATH").
+    echo   3. Relancez cet assistant d'installation.
+    echo.
+    echo Note : Vous pouvez conserver votre version actuelle de Python,
+    echo Python 3.11 s'installe a cote sans aucun conflit.
+    echo.
+    pause
+    exit /b 1
 )
 
+rem If nothing was detected at all
 if not defined TARGET_PY (
     echo.
     echo =======================================================================
-    echo  [ATTENTION] Impossible de localiser Python sur cet ordinateur !
+    echo  [ATTENTION] Python 3.11 n'a pas ete trouve sur cet ordinateur !
     echo =======================================================================
     echo.
-    echo Pour continuer, installez Python ou ajoutez-le a PATH :
-    echo   1. Si Python est deja installe : relancez son installateur,
-    echo      choisissez "Modify", puis cochez "Add Python to environment variables".
-    echo   2. Si vous installez un nouveau Python 3.11 :
-    echo      IMPORTANT : Sur le premier ecran, cochez la case en bas :
+    echo Pour continuer, veuillez installer Python 3.11 :
+    echo   1. Lancez l'installateur 'python-3.11.9-amd64.exe'.
+    echo   2. IMPORTANT : Sur le premier ecran, cochez la case en bas :
     echo      [x] "Add python.exe to PATH"
-    echo   3. Relancez ensuite cet installateur.
+    echo   3. Cliquez sur "Install Now".
+    echo   4. Relancez ensuite cet installateur.
     echo.
     pause
     exit /b 1
 )
 
 for /f "delims=" %%v in ('"!TARGET_PY!" --version 2^>^&1') do set "PY_VER=%%v"
-echo  - Python localise : !TARGET_PY! (!PY_VER!)
+echo  - Python 3.11 detecte : !TARGET_PY! (!PY_VER!)
 echo.
 
 rem Step 2: Virtual environment
