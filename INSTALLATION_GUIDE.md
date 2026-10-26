@@ -1,94 +1,96 @@
-# HKN Dentaire — Guide d'Installation & Utilisation
-### Guide complet pas à pas pour les cabinets dentaires
+# HKN Dentaire — Guide d'installation et d'utilisation
 
-Bienvenue dans **HKN Dentaire** ! Ce guide est conçu en langage clair et simple pour les chirurgiens-dentistes, gestionnaires de cabinets et assistant(e)s. 
-
-> [!NOTE]
-> **Zero prérequis technique :** Vous n'avez PAS besoin d'installer Python, ni de base de données, ni de configurer des variables d'environnement. Tout le moteur est 100% autonome et pré-embarqué dans l'application.
+Version 1.0.0 — Octobre 2026
 
 ---
 
-## 📋 Prérequis matériels
+## 1. Ce que vous recevez
 
-L'application fonctionne **100% en local sur votre ordinateur** sans connexion Internet requise.
+| Livraison | Contenu |
+|---|---|
+| `HKN Dentaire Setup.exe` | Programme d'installation en un seul fichier (recommandé) |
+| `HKN Dentaire.zip` | Version portable (alternative) |
+| `VotreClinique.lic` | Fichier de licence de votre clinique (fourni séparément par votre revendeur) |
 
-Vous avez uniquement besoin de :
-1. **Un PC sous Windows** (Windows 10 ou Windows 11).
-2. **Le package logiciel** (`clinicfinal2026.zip`).
-
----
-
-## 🚀 Installation Express en 1 Clic
-
-### Étape 1 : Décompresser l'archive
-1. Créez un dossier sur votre disque principal (ex : `C:\clinic` ou sur votre Bureau).
-2. Extrayez l'intégralité du fichier `clinicfinal2026.zip` dans ce dossier.
-   *(Vous y trouverez les fichiers `start.bat`, `install.bat`, `stop.bat` et le dossier `runtime`).*
+**Aucun accès à Internet n'est requis.** Tout est intégré : application, base de données, environnements d'exécution.
 
 ---
 
-### Étape 2 : Lancer l'assistant d'installation
-1. Double-cliquez sur :
-   👉 **`install.bat`**
-2. Le programme configure le cabinet en quelques secondes :
-   - Détection automatique de l'environnement portable embarqué.
-   - Saisie rapide des coordonnées du praticien (ou appuyez sur Entrée pour les valeurs par défaut) :
-     - **Nom du médecin** *(ex : Dr. Benali Amine)*
-     - **Identifiant de connexion** *(ex : dentiste)*
-     - **Mot de passe** *(ex : Cabinet2026!)*
-3. Le raccourci **"HKN Dentaire"** est automatiquement créé sur votre Bureau Windows !
-4. L'application se lance immédiatement prête à l'emploi.
+## 2. Installation — Setup.exe (recommandé)
 
-> [!TIP]
-> **Démarrage direct sans installation :** Vous pouvez également double-cliquer directement sur **`start.bat`** ! L'application initialise automatiquement la base de données, active la licence intégrée et s'ouvre dans votre navigateur sans aucune question. Identifiant par défaut : `dentiste` / Mot de passe : `Cabinet2026!`.
+1. Double-cliquez sur **HKN Dentaire Setup.exe**.
+   - Si Windows affiche *« Windows a protégé votre ordinateur »* (SmartScreen) : cliquez sur **Informations complémentaires** puis **Exécuter quand même**. Ce message apparaît car le programme n'est pas signé par une grande société ; il provient de votre revendeur.
+   - Si votre antivirus affiche un avertissement, vérifiez que le fichier provient bien de votre revendeur, puis autorisez-le.
+2. Suivez l'assistant :
+   - **Licence** : le programme détecte automatiquement un fichier `.lic` situé à côté du Setup. Sinon, cliquez sur *Parcourir…* et sélectionnez `VotreClinique.lic`.
+   - **Dossier d'installation** : gardez la valeur proposée (`%LOCALAPPDATA%\Programs\HKN Dentaire`).
+   - **Compte principal** : choisissez votre **nom d'utilisateur** et un **mot de passe** (10 caractères minimum, avec lettres, chiffres et un symbole). Notez-les précieusement : ils seront demandés à chaque ouverture.
+   - **Options** : raccourci Bureau, accès depuis les autres PC de la clinique (optionnel), lancement automatique.
+3. À la fin, l'application démarre : une **icône en forme de dent** apparaît à côté de l'horloge, puis la fenêtre de l'application s'ouvre.
+4. Connectez-vous avec le compte créé à l'étape 3.
 
----
-
-## 🖥️ Utilisation quotidienne
-
-### Comment ouvrir l'application
-- Double-cliquez simplement sur le raccourci **HKN Dentaire** sur votre Bureau Windows.
-- L'application s'ouvre dans une fenêtre d'application dédiée et épurée (style natif sans barre d'onglets).
-
-### Connecter un second ordinateur (Poste Réception / Secrétariat)
-Si votre cabinet dispose d'un poste d'accueil ou d'une seconde salle de soins :
-1. Connectez les deux ordinateurs au même réseau local (box Wi-Fi du cabinet ou câble réseau).
-2. Sur le PC principal, ouvrez l'invite de commande et tapez `ipconfig` pour noter son adresse IP locale (ex : `192.168.1.15`).
-3. Sur le PC de réception, ouvrez Chrome ou Edge et rendez-vous sur :
-   ```
-   http://192.168.1.15:8000
-   ```
-4. L'assistant(e) peut se connecter avec son propre compte !
-
-### Comment fermer l'application
-- Vous pouvez simplement fermer la fenêtre à la fin de votre journée.
-- Pour stopper complètement le serveur d'arrière-plan, double-cliquez sur :
-  👉 **`stop.bat`**
+> Votre identifiant d'installation (nécessaire pour activer la licence) est affiché à la fin de l'installation. Le copier et l'envoyer à votre revendeur s'il n'a pas encore généré votre fichier de licence.
 
 ---
 
-## 💾 Sauvegardes & Sécurité des données
+## 3. Installation — ZIP (alternative)
 
-Les dossiers médicaux de vos patients sont protégés automatiquement :
+1. Clic droit sur le ZIP → **Extraire tout** dans un dossier (par exemple `C:\Clinique\Dental care software`). **Extrayez la totalité du fichier.**
+2. Ouvrez le dossier extrait, puis le dossier `scripts`.
+3. Double-cliquez sur **install.bat**.
+4. Répondez aux questions :
+   - *Première installation ?* → **O**
+   - Nom du dentiste, nom d'utilisateur, **mot de passe** (saisi deux fois dans votre tête — un seul champ ici).
+5. Les raccourcis sont créés automatiquement ; l'application se lance.
 
-### Sauvegarde automatique quotidienne
-- Chaque soir à **20h00**, le système effectue une sauvegarde complète et chiffrée de tous les patients, actes, odontogrammes et paiements dans :
-  `data\backups\`
-- Vous pouvez modifier l'heure de sauvegarde à tout moment dans **Paramètres → Sauvegarde**.
-
-### Sauvegarde manuelle instantanée
-1. Dans le menu de l'application, cliquez sur **Paramètres**.
-2. Dans la section **Sauvegarde**, cliquez sur **"Sauvegarder maintenant"**.
-
-> [!TIP]
-> **Conseil sécurité :** Branchez une clé USB sur votre ordinateur et copiez le dossier `data\backups` dessus régulièrement. En cas de panne matérielle de votre PC, l'intégralité de votre cabinet est récupérable en 5 minutes.
+En cas de difficulté, tout est réitérable : relancer `install.bat` est sans danger (les données sont conservées si vous choisissez **N** = mise à jour).
 
 ---
 
-## 🖨️ Impression des ordonnances et devis
+## 4. Utilisation quotidienne
 
-1. Lors du clic sur **Imprimer** :
-2. Dans la boîte de dialogue d'impression de votre navigateur :
-   - **Marges :** Sélectionnez **"Par défaut"**.
-   - **Options :** Cochez impérativement la case **"Graphiques d'arrière-plan"**.
-3. Vos ordonnances sortiront avec le logo du cabinet, le filigrane et les bordures parfaitement alignés au format A4.
+- **Lancer** : double-cliquez sur le raccourci **HKN Dentaire** (Bureau ou Menu Démarrer). L'icône dent apparaît à côté de l'horloge pendant le démarrage, puis la fenêtre s'ouvre. Si vous la fermez sans le vouloir, double-cliquez à nouveau sur l'icône tray.
+- **Arrêter** : clic droit sur l'icône dent → **Arrêter tout et quitter** (arrête proprement la base de données).
+- **Réseau local** : si l'option a été activée, les autres postes de la clinique accèdent à l'application via `http://<adresse-de-ce-PC>:8000`.
+
+---
+
+## 5. Mise à jour du logiciel
+
+Exécutez simplement le **nouveau Setup.exe** fourni par votre revendeur : il se réinstalle au même emplacement et **conserve toutes vos données**.
+
+Avec la version ZIP : extraire le nouveau ZIP puis relancer `install.bat` en choisissant **N** (mise à jour). Les données sont conservées.
+
+---
+
+## 6. Mot de passe oublié
+
+Lancez `scripts\reset_password.bat` (dans le dossier d'installation), saisissez un nouveau mot de passe et confirmez. Les données patients ne sont pas modifiées.
+
+---
+
+## 7. Sauvegardes
+
+Menu **Paramètres → Sauvegardes** de l'application : créez une sauvegarde à tout moment. Il est recommandé de faire une sauvegarde **chaque fin de journée** et de conserver une copie sur clé USB ou disque externe.
+
+---
+
+## 8. Dépannage
+
+| Problème | Solution |
+|---|---|
+| Message SmartScreen / antivirus à l'installation | *Informations complémentaires → Exécuter quand même* (voir §2) |
+| `Le port 8000 est utilisé par une autre application` | Fermez l'autre application ; sinon redémarrez le PC et relancez |
+| Erreur « runtime absent / incomplet » (version ZIP) | Le ZIP n'a pas été extrait entièrement — ré-extrayez tout |
+| L'application ne s'ouvre pas | Double-cliquez sur l'icône dent à côté de l'horloge ; si besoin utilisez *Console de diagnostic* (clic droit sur l'icône) |
+| Mot de passe oublié | `scripts\reset_password.bat` (§6) |
+| Changer le mot de passe / le compte | `scripts\reset_password.bat` |
+| Licence expirée ou absente | Page **Licence** de l'application : importez le nouveau fichier `.lic` fourni par votre revendeur |
+
+---
+
+## 9. Assistance
+
+Contactez votre revendeur (HKN) en joignant :
+1. Une capture d'écran du message d'erreur ;
+2. Votre **identifiant d'installation** (visible dans **Paramètres → À propos**).

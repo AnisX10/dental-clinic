@@ -1,43 +1,45 @@
 @echo off
-rem Gracefully stops any running uvicorn clinic process on port 8000.
-setlocal enabledelayedexpansion
+rem =====================================================================
+rem  HKN Dentaire - Safe shutdown for the local server.
+rem  1) Stops our own server process on port 8000 (never a foreign app).
+rem  2) Gracefully shuts the embedded PostgreSQL down (pg_ctl -m fast),
+rem     so the medical database is never force-killed.
+rem =====================================================================
+setlocal DisableDelayedExpansion
 cd /d "%~dp0.."
+set "ROOT_DIR=%cd%"
 
-echo [clinic] Stopping clinic server on port 8000...
+set "PY_RUNTIME=%ROOT_DIR%\runtime\python.exe"
+set "PY_VENV=%ROOT_DIR%\.venv\Scripts\python.exe"
+if exist "%PY_RUNTIME%" (set "PY=%PY_RUNTIME%") else (set "PY=%PY_VENV%")
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$conns = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue; " ^
-  "if (-not $conns) { Write-Host '[clinic] No running clinic server found on port 8000.'; exit 0 }; " ^
-  "$pids = $conns | Select-Object -ExpandProperty OwningProcess -Unique; " ^
-  "foreach ($p in $pids) { " ^
-  "  if ($p -le 0) { continue }; " ^
-  "  try { " ^
-  "    $proc = Get-CimInstance Win32_Process -Filter \"ProcessId = $p\"; " ^
-  "    if ($proc -and $proc.ParentProcessId) { " ^
-  "      $parent = Get-CimInstance Win32_Process -Filter \"ProcessId = $($proc.ParentProcessId)\"; " ^
-  "      if ($parent -and ($parent.Name -match '^(cmd|python|powershell)\.exe$')) { " ^
-  "        Write-Host ('[clinic] Stopping launcher process ' + $parent.ProcessId + ' (' + $parent.Name + ')...'); " ^
-  "        Stop-Process -Id $parent.ProcessId -Force -ErrorAction SilentlyContinue; " ^
-  "      } " ^
+  "if ($conns) { " ^
+  "  $root = '%ROOT_DIR%'; " ^
+  "  foreach ($p in ($conns | Select-Object -ExpandProperty OwningProcess -Unique)) { " ^
+  "    if ($p -le 0) { continue } " ^
+  "    $cmdline = (Get-CimInstance Win32_Process -Filter ('ProcessId = ' + $p)).CommandLine; " ^
+  "    if ($cmdline -and ($cmdline.ToLower().Contains($root.ToLower()) -or $cmdline.ToLower().Contains('app\launcher.py'))) { " ^
+  "      Write-Host ('[clinic] Stopping HKN Dentaire server (PID ' + $p + ')...'); " ^
+  "      Stop-Process -Id $p -Force -ErrorAction SilentlyContinue; " ^
+  "    } else { " ^
+  "      Write-Host ('[clinic] Port 8000 is used by another program (PID ' + $p + ') - left untouched.'); " ^
   "    } " ^
-  "    Write-Host ('[clinic] Stopping server process ' + $p + ' (' + $proc.Name + ')...'); " ^
-  "    Stop-Process -Id $p -Force -ErrorAction SilentlyContinue; " ^
-  "  } catch { " ^
-  "    taskkill /F /T /PID $p 2>$null; " ^
   "  } " ^
-  "}; " ^
-  "Start-Sleep -Seconds 1; " ^
-  "$rem = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue; " ^
-  "if ($rem) { Write-Host '[clinic] Warning: Port 8000 is still listening.'; exit 1 } else { Write-Host '[clinic] Clinic server stopped successfully.'; exit 0 }"
+  "} else { Write-Host '[clinic] No server running on port 8000.' }"
+if errorlevel 1 echo [clinic] Warning: could not inspect port 8000.
 
-if %ERRORLEVEL% neq 0 (
-    echo [clinic] Retrying with netstat fallback...
-    for /f "tokens=5" %%a in ('netstat -ano -p tcp ^| findstr ":8000 " ^| findstr "LISTENING"') do (
-        if not "%%a"=="0" (
-            taskkill /f /t /pid %%a >nul 2>&1
-        )
+if exist "%PY%" (
+    if exist "%ROOT_DIR%\backend\app\cli.py" (
+        echo [clinic] Closing the database cleanly...
+        "%PY%" "%ROOT_DIR%\backend\app\cli.py" stop-server
     )
+) else (
+    echo [clinic] Runtime not found - database could not be closed via pg_ctl.
+    echo [clinic] If PostgreSQL is still running, it will close gracefully on next clean stop.
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "Get-Process | Where-Object { $_.ProcessName -eq 'postgres' -and $_.Path -like '*pgserver*' } | Stop-Process -Force -ErrorAction SilentlyContinue" >nul 2>&1
+echo [clinic] Shutdown complete.
+endlocal
+exit /b 0

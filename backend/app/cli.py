@@ -2,12 +2,14 @@
 import argparse
 import getpass
 import string
+import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.db import dispose_engine, get_session_factory  # noqa: E402
+from app.core.security import hash_password  # noqa: E402
 from app.core.services import create_user, get_settings_row, seed_catalog  # noqa: E402
 
 
@@ -40,7 +42,15 @@ def main() -> int:
     p_init.add_argument("--username", default="", help="First owner username (prompted if omitted)")
     p_init.add_argument("--password", default="", help="Password (prompted twice if omitted)")
     p_init.add_argument("--full-name", default="", help="Full name (prompted if omitted)")
-    p_init.add_argument("--force", action="store_true", help="Proceed even if demo users are present")
+    p_init.add_argument(
+        "--force",
+        action="store_true",
+        help="If an owner account with this username already exists, RESET its password and full name",
+    )
+
+    sub.add_parser("stop-server", help="Gracefully stop the bundled PostgreSQL server (clean shutdown)")
+    p_print_id = sub.add_parser("print-installation-id", help="Print the installation ID used for licensing")
+    p_print_id.add_argument("--json", action="store_true", help="Machine-readable output")
 
     return _run(parser.parse_args())
 
@@ -57,6 +67,12 @@ def _run(args) -> int:
 
     if args.command == "init-prod":
         return _init_prod(args)
+
+    if args.command == "stop-server":
+        return _stop_server()
+
+    if args.command == "print-installation-id":
+        return _print_installation_id(as_json=args.json)
 
     if getattr(args, "migrate", False):
         _run_migrations()
@@ -363,31 +379,50 @@ def _prod_password_problem(password: str) -> str | None:
 
 
 def _init_prod(args) -> int:
-    """One-shot production bootstrap: schema, catalog, first owner, audit."""
+    """One-shot production bootstrap: schema, catalog, first owner, audit.
+
+    Credential inputs may come from (in order): --password/--username/--full-name
+    flags, then CLINIC_INIT_* environment variables (used by the installer so the
+    password never appears in another process's command line), then prompting.
+    """
+    import os
+
+    from sqlalchemy import select
+
     from app.core.config import FRONTEND_DIST, get_settings
     from app.core.db import get_engine
+    from app.core.models import User
 
     _run_migrations()
 
-    username = (args.username or input("Owner username: ").strip().lower())
-    full_name = args.full_name or input("Full name (e.g. Dr Benali Amine): ").strip()
-    while True:
-        password = args.password or getpass.getpass("Password (>=10, letters+digits+symbol): ")
-        if args.password:
+    username = args.username or os.environ.get("CLINIC_INIT_USERNAME", "")
+    full_name = args.full_name or os.environ.get("CLINIC_INIT_FULLNAME", "")
+    password = args.password or os.environ.get("CLINIC_INIT_PASSWORD", "")
+
+    username = username.strip().lower()
+    full_name = full_name.strip()
+
+    if not password:
+        while True:
+            password = getpass.getpass("Password (>=10, letters+digits+symbol): ")
             problem = _prod_password_problem(password)
             if problem:
-                print(f"Password rejected: {problem}", file=sys.stderr)
-                return 1
+                print(f"Password rejected: {problem}")
+                continue
+            confirm = getpass.getpass("Confirm password: ")
+            if password != confirm:
+                print("Passwords do not match, try again.")
+                continue
             break
+    else:
         problem = _prod_password_problem(password)
         if problem:
-            print(f"Password rejected: {problem}")
-            continue
-        confirm = getpass.getpass("Confirm password: ")
-        if password != confirm:
-            print("Passwords do not match, try again.")
-            continue
-        break
+            print(f"Password rejected: {problem}", file=sys.stderr)
+            return 1
+    if not username:
+        username = input("Owner username: ").strip().lower()
+    if not full_name:
+        full_name = input("Full name (e.g. Dr Benali Amine): ").strip()
 
     db = get_session_factory()()
     try:
@@ -401,14 +436,33 @@ def _init_prod(args) -> int:
             )
             return 1
 
-        user = create_user(db, username=username, password=password, full_name=full_name,
-                           role="dentiste", is_owner=True)
+        existing = db.execute(
+            select(User).where(User.username == username, User.is_owner.is_(True))
+        ).scalar_one_or_none()
+        if existing is not None:
+            if args.force:
+                existing.password_hash = hash_password(password)
+                existing.full_name = full_name or existing.full_name
+                existing.is_active = True
+                db.commit()
+                print(
+                    f"Owner '{username}' already existed: password and full name were REPLACED "
+                    f"as requested (--force)."
+                )
+            else:
+                print(
+                    f"Owner '{username}' already exists. Credentials left unchanged.\n"
+                    f"To reset the password of '{username}', run this command again with --force."
+                )
+        else:
+            user = create_user(db, username=username, password=password, full_name=full_name,
+                               role="dentiste", is_owner=True)
+            print(f"Owner created: {user.username} (dentiste +owner)")
         if not seed_catalog(db):
             print("Treatment catalog: already present.")
         else:
             print("Treatment catalog: 21 items created.")
         db.commit()
-        print(f"Owner created: {user.username} (dentiste +owner)")
     except Exception as exc:
         db.rollback()
         print(f"Error: {exc}", file=sys.stderr)
@@ -450,6 +504,76 @@ def _init_prod(args) -> int:
         "  - monthly drill task: see DEPLOY.md 'Automated monthly drill'\n"
         "  - finish section 7 checklist of DEPLOY.md"
     )
+    return 0
+
+
+def _pg_bin_dir() -> Path | None:
+    """Directory holding the bundled PostgreSQL binaries (pg_ctl.exe, ...)."""
+    try:
+        from pgserver.postgres_server import POSTGRES_BIN_PATH  # pyright: ignore[reportMissingImports]
+
+        return Path(POSTGRES_BIN_PATH)
+    except ImportError:
+        return None
+
+
+def _stop_server() -> int:
+    """Gracefully stop the bundled PostgreSQL (data/pgdata) via pg_ctl.
+
+    `fast` lets all clients finish, checkpoints, THEN exits — the safe way to
+    close a medical database. Escalates only if a fast stop is refused.
+    """
+    import os
+
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    pgdata = Path(settings.data_dir) / "pgdata"
+    if not (pgdata / "PG_VERSION").is_file():
+        print(f"No bundled database found at {pgdata}. Nothing to stop.")
+        return 0
+
+    bin_dir = _pg_bin_dir()
+    pg_ctl = (bin_dir / "pg_ctl.exe") if bin_dir else Path("pg_ctl.exe")
+    env = dict(os.environ)
+    if bin_dir:
+        env["PATH"] = f"{bin_dir};{env.get('PATH', '')}"
+    env["PGDATA"] = str(pgdata)
+    for mode in ("fast", "immediate"):
+        print(f"Stopping PostgreSQL ({mode})...")
+        proc = subprocess.run(
+            [str(pg_ctl), "-D", str(pgdata), "-m", mode, "stop"],
+            capture_output=True, text=True, timeout=60, env=env,
+        )
+        out = ((proc.stdout or "") + (proc.stderr or "")).strip()
+        if proc.returncode == 0:
+            print("PostgreSQL stopped cleanly. Your data is safe.")
+            return 0
+        if "does not appear" in out or "no server" in out.lower():
+            print("PostgreSQL was not running.")
+            return 0
+        print(out)
+    print("Could not stop PostgreSQL with pg_ctl.", file=sys.stderr)
+    return 1
+
+
+def _print_installation_id(*, as_json: bool = False) -> int:
+    """Print the installation ID of THIS database (for licence issuance)."""
+    import json
+
+    from app.licensing import service
+
+    try:
+        installation_id = service.installation_getter()
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        dispose_engine()
+    if as_json:
+        print(json.dumps({"installation": installation_id}))
+    else:
+        print(f"Installation ID: {installation_id}")
     return 0
 
 

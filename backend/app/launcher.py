@@ -9,7 +9,6 @@ Zero-configuration launcher that provides:
 import argparse
 import logging
 import os
-import shutil
 import socket
 import subprocess
 import sys
@@ -37,7 +36,7 @@ def is_port_listening(host: str, port: int, timeout: float = 0.4) -> bool:
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True
-    except (OSError, socket.timeout):
+    except (TimeoutError, OSError):
         return False
 
 
@@ -51,31 +50,85 @@ def is_clinic_healthy(port: int, timeout: float = 1.0) -> bool:
         return False
 
 
-def kill_process_on_port(port: int) -> None:
-    logger.info("Attempting to terminate stale process on port %d...", port)
+def list_pids_on_port(port: int) -> list[int]:
+    """PIDs of processes listening on the port (best effort)."""
+    ps_cmd = (
+        f"$c = Get-NetTCPConnection -LocalPort {port} -State Listen -ErrorAction SilentlyContinue; "
+        "if ($c) { $c | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { $_ } }"
+    )
     try:
-        ps_cmd = (
-            f"$conns = Get-NetTCPConnection -LocalPort {port} -State Listen -ErrorAction SilentlyContinue; "
-            "if ($conns) { "
-            "  $pids = $conns | Select-Object -ExpandProperty OwningProcess -Unique; "
-            "  foreach ($p in $pids) { if ($p -gt 0) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } } "
-            "}"
+        proc = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps_cmd], timeout=6, capture_output=True, text=True
         )
-        subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], timeout=5, capture_output=True)
-    except Exception as exc:
-        logger.warning("Powershell process termination notice on port %d: %s", port, exc)
+        return [int(tok) for tok in proc.stdout.split() if tok.strip().lstrip("-").isdigit() and int(tok) > 0]
+    except Exception:
+        return []
 
-    if is_port_listening("127.0.0.1", port):
+
+def _pid_matches_our_app(pid: int) -> bool:
+    """True when the process was started by this application (not a stranger)."""
+    root_marker = str(PROJECT_ROOT)
+    try:
+        proc = subprocess.run(
+            [
+                "powershell", "-NoProfile", "-Command",
+                f"(Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}').CommandLine",
+            ],
+            timeout=6, capture_output=True, text=True,
+        )
+        cmdline = (proc.stdout or "").strip()
+        if not cmdline:
+            return False
+        low = cmdline.lower()
+        return (
+            root_marker.lower() in low
+            or "app\\launcher.py" in low
+            or "app/launcher.py" in low
+            or "clinic" in low
+        )
+    except Exception:
+        return False
+
+
+def kill_process_on_port(port: int) -> bool:
+    """Terminate ONLY processes that belong to this application on the port.
+
+    A foreign process (another service, another tool on port 8000) is NEVER
+    killed: the launcher reports a clear error instead. Returns True when the
+    port was freed (or already free) and safe to bind.
+    """
+    pids = list_pids_on_port(port)
+    if not pids:
+        return True
+    ours: list[int] = []
+    foreign: list[int] = []
+    for pid in pids:
+        (ours if _pid_matches_our_app(pid) else foreign).append(pid)
+    for pid in foreign:
         try:
-            netstat = subprocess.run(["netstat", "-ano", "-p", "tcp"], capture_output=True, text=True, timeout=5)
-            for line in netstat.stdout.splitlines():
-                if f":{port}" in line and "LISTENING" in line:
-                    tokens = line.strip().split()
-                    pid = tokens[-1]
-                    if pid.isdigit() and int(pid) > 0:
-                        subprocess.run(["taskkill", "/F", "/T", "/PID", pid], capture_output=True, timeout=5)
+            proc = subprocess.run(
+                ["powershell", "-NoProfile", "-Command",
+                 f"(Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}').Name"],
+                timeout=6, capture_output=True, text=True)
+            name = (proc.stdout or "").strip()
+        except Exception:
+            name = "?"
+        logger.error(
+            "Port %d is occupied by another program (%s, PID %d). Please close that program, "
+            "or change the port with CLINIC_PORT before starting again.",
+            port, name or "unknown", pid,
+        )
+    for pid in ours:
+        logger.info("Stopping leftover HKN Dentaire process %d on port %d...", pid, port)
+        try:
+            subprocess.run(
+                ["powershell", "-NoProfile", "-Command",
+                 f"Stop-Process -Id {pid} -Force -ErrorAction Stop"], timeout=6, capture_output=True
+            )
         except Exception as exc:
-            logger.warning("taskkill fallback notice on port %d: %s", port, exc)
+            logger.warning("Could not stop leftover process %d: %s", pid, exc)
+    time.sleep(0.8)
+    return not list_pids_on_port(port)
 
 
 def find_app_browser() -> str | None:
@@ -130,7 +183,6 @@ def ensure_database_bootstrapped() -> None:
     from alembic.config import Config
     from sqlalchemy import select
 
-    from app.core.config import get_settings
     from app.core.db import dispose_engine, get_session_factory
     from app.core.models import User
     from app.core.services import create_user, seed_catalog
@@ -171,43 +223,6 @@ def ensure_database_bootstrapped() -> None:
         dispose_engine()
 
 
-DEFAULT_PERPETUAL_LICENSE = """{
-  "license": {
-    "artifact": "clinic-dentaire",
-    "form": 1,
-    "clinic": "Cabinet Dentaire",
-    "dentist": "Dr. Dentiste",
-    "installation": "*",
-    "issued_at": "2026-10-24"
-  },
-  "signature": "23K1Vt2J1Kt_seU55-wOgOlHk6siTiw97HNwhmhxInlGywVQamp8ySt5VgezQFUXktW7FySMshOjcLUhXOR5DQ=="
-}"""
-
-
-def ensure_perpetual_license() -> None:
-    """Ensure data/clinic.lic is present and active, auto-provisioning if missing."""
-    from app.core.config import get_settings
-    from app.licensing import service
-
-    data_dir = get_settings().data_dir
-    data_dir.mkdir(parents=True, exist_ok=True)
-    clinic_lic = data_dir / "clinic.lic"
-    license_lic = data_dir / "license.lic"
-
-    if not clinic_lic.is_file() and not license_lic.is_file():
-        logger.info("Auto-provisioning perpetual license to %s...", clinic_lic)
-        clinic_lic.write_text(DEFAULT_PERPETUAL_LICENSE.strip(), encoding="utf-8")
-
-    manager = service.get_manager()
-    state = manager.load()
-    if not state.active:
-        logger.warning("Existing license inactive (%s). Refreshing with universal license...", state.reason)
-        clinic_lic.write_text(DEFAULT_PERPETUAL_LICENSE.strip(), encoding="utf-8")
-        state = manager.load()
-    if state.active:
-        logger.info("Perpetual license active (clinic: %s)", (state.payload or {}).get("clinic"))
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="HKN Dentaire Server Launcher")
     parser.add_argument("--host", default="0.0.0.0", help="Host interface to bind (default: 0.0.0.0)")
@@ -230,14 +245,14 @@ def main() -> int:
             if not args.no_browser:
                 open_browser(port, as_app=as_app)
             return 0
-        else:
-            logger.warning("Port %d is occupied by an unresponsive process. Cleaning up...", port)
-            kill_process_on_port(port)
-            time.sleep(1.0)
+        logger.warning("Port %d is occupied by an unresponsive process. Cleaning up...", port)
+        if not kill_process_on_port(port):
+            logger.error("Could not free port %d. Start aborted (see messages above).", port)
+            return 1
+        time.sleep(0.5)
 
-    # 2. Ensure database schema & initial account & license
+    # 2. Ensure database schema & initial account
     ensure_database_bootstrapped()
-    ensure_perpetual_license()
 
     # 3. Schedule browser opening upon server ready
     if not args.no_browser:
