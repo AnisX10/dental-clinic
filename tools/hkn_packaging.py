@@ -24,6 +24,24 @@ RUNTIME_PRUNE_SITEPACKAGES = {
     "hypothesis",
     "coverage",
     "pytest-cov",
+    # dev-only tooling pulled in via requirements.txt extras
+    "ruff",              # 25 MB linter binary, never used at runtime
+    "pygments",          # syntax highlighting (ruff/pytest companion)
+    "httpx",             # TestClient only (dev); starlette/fastapi don't need it
+    "httpcore",          # httpx transport layer
+    "watchfiles",        # uvicorn --reload helper (dev only)
+    "websockets",        # uvicorn WS protocol (app has no websocket endpoints)
+}
+
+# CLI launcher stubs installed into site-packages/bin by these same dev packages
+RUNTIME_PRUNE_BIN_STUBS = {
+    "ruff.exe",
+    "pytest.exe",
+    "py.test.exe",
+    "pygmentize.exe",
+    "httpx.exe",
+    "watchfiles.exe",
+    "websockets.exe",
 }
 
 
@@ -33,8 +51,11 @@ def _runtime_file_ok(rel: str) -> bool:
     if name.endswith((".pyc", ".pyo")):
         return False
     if "site-packages/" in rel:
-        # license/readme noise inside third-party packages
         parent = rel.rsplit("/", 1)[0]
+        # dev CLI stubs (site-packages/bin/*.exe)
+        if parent.endswith("/bin") and name in RUNTIME_PRUNE_BIN_STUBS:
+            return False
+        # license/readme noise inside third-party packages
         if name in ("RECORD", "INSTALLER", "REQUESTED") and parent.endswith(".dist-info"):
             return False
         if fnmatch.fnmatch(name, "LICENSE*") or fnmatch.fnmatch(name, "NOTICE*"):
