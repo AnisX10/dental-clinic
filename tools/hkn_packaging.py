@@ -42,6 +42,11 @@ RUNTIME_PRUNE_BIN_STUBS = {
     "httpx.exe",
     "watchfiles.exe",
     "websockets.exe",
+    "dotenv.exe",
+    "mako-render.exe",
+    "fastapi.exe",
+    "idna.exe",
+    "cffi-gen-src.exe",
 }
 
 
@@ -80,13 +85,18 @@ def _runtime_walk_ok(rel: str, is_dir: bool) -> bool:
             if rel == std or rel.startswith(std + "/"):
                 return False
         if "site-packages/" in rel:
-            # top-level third-party package ban
+            # top-level third-party package ban (also catches versioned
+            # .dist-info / .data dirs, e.g. pytest-9.1.1.dist-info)
             tail = rel.split("site-packages/", 1)[1]
             head = tail.split("/", 1)[0] if "/" in tail else tail
-            if head in RUNTIME_PRUNE_SITEPACKAGES:
+            base = head.split("-", 1)[0]
+            if base in RUNTIME_PRUNE_SITEPACKAGES or head in RUNTIME_PRUNE_SITEPACKAGES:
                 return False
             # pgserver source leftovers
             if tail == "pgserver/sources" or tail == "pgserver/_source":
+                return False
+            # bundled self-tests inside third-party packages
+            if tail in ("certifi/tests", "certifi/tests/"):
                 return False
         return True
     else:
