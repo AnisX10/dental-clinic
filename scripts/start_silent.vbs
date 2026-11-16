@@ -1,4 +1,4 @@
-' HKN Dentaire - Silent Background Service Launcher
+' Dentilo - Silent Background Service Launcher
 ' Launches scripts\start.bat invisibly (window style 0) so the Command Prompt
 ' does not clutter the taskbar or risk accidental closure.
 ' When passed /app (or --app), also waits for the server to become ready
@@ -71,9 +71,9 @@ If isAppMode Then
             shell.Run "http://127.0.0.1:8000", 1, False
         End If
     Else
-        MsgBox "Le serveur HKN Dentaire n'a pas pu demarrer dans le delai imparti." & vbCrLf & vbCrLf & _
+        MsgBox "Le serveur Dentilo n'a pas pu demarrer dans le delai imparti." & vbCrLf & vbCrLf & _
                "Veuillez d'abord executer 'install.bat' a la racine pour installer l'application, ou lancer 'scripts\start.bat' pour verifier les messages d'erreur.", _
-               vbCritical, "HKN Dentaire"
+               vbCritical, "Dentilo"
     End If
 End If
 

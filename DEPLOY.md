@@ -80,7 +80,7 @@ start. The database (PostgreSQL 16, bundled launcher) initializes itself in
 
 Run **`scripts\create_desktop_shortcut.bat`** once on the server PC.
 
-- Creates an **HKN Dentaire** shortcut directly on the current user's Windows Desktop.
+- Creates an **Dentilo** shortcut directly on the current user's Windows Desktop.
 - Double-clicking the shortcut:
   1. Starts the clinic service silently in the background (if not already running).
   2. Opens the application in a clean, borderless app-window mode (`msedge.exe --app=http://127.0.0.1:8000` or `chrome.exe --app=http://127.0.0.1:8000`).

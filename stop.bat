@@ -1,6 +1,6 @@
 @echo off
 rem =======================================================================
-rem  HKN Dentaire - Arret du serveur local
+rem  Dentilo - Arret du serveur local
 rem =======================================================================
 call "%~dp0scripts\stop.bat" %*
 if errorlevel 1 (
