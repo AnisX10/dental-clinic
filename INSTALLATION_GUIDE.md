@@ -97,3 +97,10 @@ Copiez régulièrement les dossiers `data\backups` **et** `data\attachments` sur
 2. Cliquez sur **Imprimer**, puis dans la fenêtre d'impression :
    - **Marges :** « Par défaut ».
    - **Options :** cochez **« Graphiques d'arrière-plan »**.
+
+---
+
+## 🆘 En cas de problème
+
+- Le journal de l'application est enregistré dans `data\logs\dentilo.log` (chaque démarrage y indique aussi son temps de préparation, ex : « Dentilo ready in 4.2 s »). Envoyez ce fichier à l'assistance Tasshil.
+- Pour voir le détail de chaque requête, lancez `start.bat --verbose`.

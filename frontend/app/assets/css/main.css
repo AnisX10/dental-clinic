@@ -22,12 +22,9 @@
   --color-warning: #F59E0B;
   --color-danger: #EF4444;
 
-  /* Brand fonts (see branding/fonts/README.md): commercial, loaded from
-     local files only when licensed .woff2 files are dropped into
-     frontend/public/fonts/ — the browser silently falls back to Inter /
-     Noto Sans Arabic until then (offline-safe either way). */
-  --font-sans: "PP Neue Montreal", Inter, "Janah LT", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
-  --font-arabic: "Janah LT", "Noto Sans Arabic", Tahoma, Arial, sans-serif;
+  /* Inter + Noto Sans Arabic, bundled offline via @fontsource (nuxt.config.ts). */
+  --font-sans: Inter, "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  --font-arabic: "Noto Sans Arabic", Tahoma, Arial, sans-serif;
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -52,66 +49,9 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-/* --- Brand font faces (self-hosted, licensed files only) -------------- */
-/* Latin — PP Neue Montreal (Pangram Pangram), App license required. */
-@font-face {
-  font-family: "PP Neue Montreal";
-  src: url("/fonts/NeueMontreal-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "PP Neue Montreal";
-  src: url("/fonts/NeueMontreal-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "PP Neue Montreal";
-  src: url("/fonts/NeueMontreal-SemiBold.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "PP Neue Montreal";
-  src: url("/fonts/NeueMontreal-Bold.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Arabic — Janah LT (Linotype/Monotype), embedding license required. */
-@font-face {
-  font-family: "Janah LT";
-  src: url("/fonts/JanahLT-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Janah LT";
-  src: url("/fonts/JanahLT-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Janah LT";
-  src: url("/fonts/JanahLT-SemiBold.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Janah LT";
-  src: url("/fonts/JanahLT-Bold.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
+/* Fonts: Inter + Noto Sans Arabic are bundled via @fontsource (nuxt.config.ts).
+   The former commercial brand faces were never shipped and produced a 404 per
+   weight on every page load, so they are no longer declared. */
 
 html, body {
   margin: 0;

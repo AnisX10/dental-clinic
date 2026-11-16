@@ -137,7 +137,9 @@ def startup() -> None:
 
     db = get_session_factory()()
     try:
-        _ensure_schema(db)
+        # The launcher already migrated in this process; skip a second run.
+        if os.environ.get("CLINIC_SCHEMA_READY") != "1":
+            _ensure_schema(db)
     finally:
         db.close()
 
@@ -151,6 +153,12 @@ def startup() -> None:
         from app.backup.service import BackupScheduler
 
         BackupScheduler().start()
+
+    t0 = os.environ.get("CLINIC_LAUNCH_T0")
+    if t0:
+        import time
+
+        logger.info("Dentilo ready in %.1f s.", time.perf_counter() - float(t0))
 
 
 def _ensure_schema(db) -> None:

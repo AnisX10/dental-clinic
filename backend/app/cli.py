@@ -40,6 +40,7 @@ def main() -> int:
     p_init.add_argument("--password", default="", help="Password (prompted twice if omitted)")
     p_init.add_argument("--full-name", default="", help="Full name (prompted if omitted)")
     p_init.add_argument("--force", action="store_true", help="Proceed even if demo users are present")
+    p_init.add_argument("--no-audit", action="store_true", help="Skip the technical audit printout (clinic installer)")
 
     return _run(parser.parse_args())
 
@@ -355,6 +356,21 @@ def _prod_password_problem(password: str) -> str | None:
     return messages[problem] if problem else None
 
 
+EXIT_ALREADY_INITIALIZED = 3
+
+
+def _user_exists(username: str) -> bool:
+    from sqlalchemy import select
+
+    from app.core.models import User
+
+    db = get_session_factory()()
+    try:
+        return db.execute(select(User.id).where(User.username == username)).first() is not None
+    finally:
+        db.close()
+
+
 def _init_prod(args) -> int:
     """One-shot production bootstrap: schema, catalog, first owner, audit."""
     from app.core.config import FRONTEND_DIST, get_settings
@@ -363,6 +379,11 @@ def _init_prod(args) -> int:
     _run_migrations()
 
     username = (args.username or input("Owner username: ").strip().lower())
+    # Re-running the installer on an existing database must not ask for a
+    # password it will then refuse to use.
+    if _user_exists(username):
+        print(f"Le compte '{username}' existe deja : donnees et mot de passe conserves.")
+        return EXIT_ALREADY_INITIALIZED
     full_name = args.full_name or input("Full name (e.g. Dr Benali Amine): ").strip()
     while True:
         password = args.password or getpass.getpass(
@@ -399,11 +420,11 @@ def _init_prod(args) -> int:
         user = create_user(db, username=username, password=password, full_name=full_name,
                            role="dentiste", is_owner=True)
         if not seed_catalog(db):
-            print("Treatment catalog: already present.")
+            print("Catalogue des traitements : deja present.")
         else:
-            print("Treatment catalog: 21 items created.")
+            print("Catalogue des traitements : cree.")
         db.commit()
-        print(f"Owner created: {user.username} (dentiste +owner)")
+        print(f"Compte responsable cree : {user.username}")
     except Exception as exc:
         db.rollback()
         print(f"Error: {exc}", file=sys.stderr)
@@ -411,6 +432,9 @@ def _init_prod(args) -> int:
     finally:
         db.close()
         dispose_engine()
+
+    if getattr(args, "no_audit", False):
+        return 0
 
     # ------- Security audit printout (fails nothing, displays everything) ----
     settings = get_settings()

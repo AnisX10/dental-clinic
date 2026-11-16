@@ -10,7 +10,6 @@ Zero-configuration launcher that provides:
 import argparse
 import logging
 import os
-import shutil
 import socket
 import subprocess
 import sys
@@ -26,19 +25,69 @@ PROJECT_ROOT = BACKEND_DIR.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
 logger = logging.getLogger("clinic.launcher")
+
+# Libraries that print internal chatter at INFO on every start (alembic plugin
+# setup, pgserver's full initdb transcript...). Clinic staff read the console
+# as "errors"; keep only their warnings.
+_CHATTY_LOGGERS = ("alembic", "pgserver", "multipart", "watchfiles")
+LOG_FILENAME = "dentilo.log"
+
+
+class _DropClientDisconnects(logging.Filter):
+    """Windows' asyncio Proactor logs a full traceback whenever the browser
+    closes a keep-alive connection (ConnectionResetError / WinError 10054).
+    It is harmless and the most common "error" seen in the console."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        exc = record.exc_info[1] if record.exc_info else None
+        if isinstance(exc, ConnectionResetError | ConnectionAbortedError):
+            return False
+        return "WinError 10054" not in record.getMessage()
+
+
+def configure_logging(verbose: bool = False) -> Path | None:
+    """Readable console + a rotating log file under data/logs for support."""
+    from logging.handlers import RotatingFileHandler
+
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    for handler in list(root.handlers):
+        root.removeHandler(handler)
+
+    console = logging.StreamHandler()
+    # No logger names on the console: "uvicorn.error" read as an error to
+    # clinic staff although it is uvicorn's normal status channel.
+    console.setFormatter(logging.Formatter("%(asctime)s %(levelname)-7s %(message)s", datefmt="%H:%M:%S"))
+    root.addHandler(console)
+
+    log_file: Path | None = None
+    try:
+        from app.core.config import get_settings
+
+        log_dir = Path(get_settings().data_dir) / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / LOG_FILENAME
+        file_handler = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+        )
+        root.addHandler(file_handler)
+    except OSError as exc:  # read-only folder: console only
+        logger.warning("Log file disabled: %s", exc)
+
+    if not verbose:
+        for name in _CHATTY_LOGGERS:
+            logging.getLogger(name).setLevel(logging.WARNING)
+    logging.getLogger("asyncio").addFilter(_DropClientDisconnects())
+    return log_file
 
 
 def is_port_listening(host: str, port: int, timeout: float = 0.4) -> bool:
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True
-    except (OSError, socket.timeout):
+    except (TimeoutError, OSError):
         return False
 
 
@@ -220,7 +269,13 @@ def main() -> int:
     parser.add_argument("--no-browser", action="store_true", help="Do not automatically launch browser")
     parser.add_argument("--browser-only", action="store_true", help="Plain browser tab instead of app window")
     parser.add_argument("--no-pause", action="store_true", help="Ignored flag for compatibility with batch scripts")
+    parser.add_argument("--verbose", action="store_true", help="Log every HTTP request and library details")
     args = parser.parse_args()
+
+    started = time.perf_counter()
+    log_file = configure_logging(verbose=args.verbose)
+    if log_file:
+        logger.info("Log file: %s", log_file)
 
     port = args.port
     host = args.host
@@ -243,6 +298,10 @@ def main() -> int:
     # 2. Ensure database schema & initial account (the licence is never
     #    auto-provisioned: an unlicensed install shows the licence screen)
     ensure_database_bootstrapped()
+    # The schema was just migrated: the app's own startup hook can skip its
+    # second, identical Alembic run.
+    os.environ["CLINIC_SCHEMA_READY"] = "1"
+    logger.info("Database ready in %.1f s.", time.perf_counter() - started)
 
     # 3. Schedule browser opening upon server ready
     if not args.no_browser:
@@ -256,9 +315,14 @@ def main() -> int:
         host=host,
         port=port,
         log_level="info",
+        # One line per HTTP request is noise for clinic staff (and every
+        # expected 401/403 looked like an error). --verbose brings it back.
+        access_log=args.verbose,
+        log_config=None,  # keep the handlers configured above (console + file)
         lifespan="on",
     )
     server = uvicorn.Server(config)
+    os.environ["CLINIC_LAUNCH_T0"] = repr(started)
 
     try:
         server.run()

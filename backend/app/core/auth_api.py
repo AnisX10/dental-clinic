@@ -12,6 +12,7 @@ from app.core.auth import (
     get_client_ip,
     get_current_user,
     get_current_user_allow_pending,
+    get_current_user_optional,
     purge_expired_sessions,
     require_owner,
 )
@@ -116,6 +117,13 @@ def logout(
         db.execute(delete(DbSession).where(DbSession.token_hash == hash_token(token)))
     response.delete_cookie(COOKIE_NAME, path="/")
     return {"ok": True}
+
+
+@router.get("/session")
+def session_info(user: User | None = Depends(get_current_user_optional)):
+    """Who is logged in, or null. Always 200: the SPA calls this on every cold
+    load, and a 401 here only filled the console and server log with noise."""
+    return {"user": _public_user(user) if user else None}
 
 
 @router.get("/me")

@@ -16,7 +16,7 @@ export function useAuth() {
     if (loaded.value && !force) return user.value
     const api = useApi()
     try {
-      const data = await api.get<{ user: ClinicUser }>("/auth/me")
+      const data = await api.get<{ user: ClinicUser | null }>("/auth/session")
       user.value = data.user
     }
     catch {

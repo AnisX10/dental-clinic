@@ -198,11 +198,20 @@ echo Initialisation de la base de donnees et du catalogue dentaire...
 rem The password is typed directly into the Python prompt (hidden, confirmed,
 rem policy-checked): it never transits through a batch variable, is never
 rem defaulted and never echoed back.
-"!TARGET_PY!" "%ROOT_DIR%\backend\app\cli.py" init-prod --username "%DOC_USER%" --full-name "%DOC_NAME%" --force
-if errorlevel 1 (
+"!TARGET_PY!" "%ROOT_DIR%\backend\app\cli.py" init-prod --username "%DOC_USER%" --full-name "%DOC_NAME%" --force --no-audit
+set "INIT_CODE=!ERRORLEVEL!"
+if "!INIT_CODE!"=="3" (
+    echo  - Installation existante detectee : vos donnees sont conservees.
+) else if not "!INIT_CODE!"=="0" (
     echo.
-    echo [NOTE] La base semble deja initialisee ou une erreur non-bloquante est survenue.
-    echo Les donnees existantes sont conservees.
+    echo =======================================================================
+    echo  [ERREUR] La base de donnees n'a pas pu etre preparee (code !INIT_CODE!^).
+    echo =======================================================================
+    echo Les details sont affiches ci-dessus. Aucun raccourci n'a ete cree.
+    echo Envoyez une capture de cette fenetre a l'assistance Tasshil.
+    echo.
+    pause
+    exit /b 1
 )
 echo.
 
