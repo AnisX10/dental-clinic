@@ -46,14 +46,14 @@ defineProps<{ date?: string, dateCaption?: string, signs?: string[] }>()
 .plf-rule {
   width: 80px;
   border: none;
-  border-top: 0.7px solid #0040dc;
+  border-top: 0.7px solid #292B3A;
   margin: 0 0 6px;
 }
 
 .plf-caption {
   font-size: 12px;
   letter-spacing: 0.3px;
-  color: #0040dc;
+  color: #292B3A;
   text-transform: uppercase;
 }
 </style>

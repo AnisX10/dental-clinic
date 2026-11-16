@@ -446,7 +446,7 @@ function statusClass(a: Appt): string {
   flex-shrink: 0;
 }
 
-.kpi-blue { background: #eef2ff; color: #0040dc; }
+.kpi-blue { background: var(--color-primary-soft); color: var(--color-primary); }
 .kpi-amber { background: #fef3c7; color: #b45309; }
 .kpi-indigo { background: #e0e7ff; color: #4338ca; }
 .kpi-emerald { background: #ecfdf5; color: #047857; }
@@ -468,7 +468,7 @@ function statusClass(a: Appt): string {
 .kpi-val {
   font-size: 20px;
   font-weight: 700;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
 }
@@ -490,7 +490,7 @@ function statusClass(a: Appt): string {
 .card-header-title {
   font-weight: 650;
   font-size: 14px;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .appt-time-cell {
@@ -503,7 +503,7 @@ function statusClass(a: Appt): string {
   gap: 6px;
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   font-variant-numeric: tabular-nums;
   background: var(--color-canvas, #f8fafc);
   padding: 3px 8px;
@@ -521,8 +521,8 @@ function statusClass(a: Appt): string {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--color-primary-soft, #eef2ff);
-  color: var(--color-primary, #0040dc);
+  background: var(--color-primary-soft, #D7E8FA);
+  color: var(--color-primary, #3B1EFF);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -534,13 +534,13 @@ function statusClass(a: Appt): string {
 .patient-cell-name {
   font-weight: 600;
   font-size: 14px;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   text-decoration: none;
   transition: color 0.12s ease;
 }
 
 .patient-cell-name:hover {
-  color: var(--color-primary, #0040dc);
+  color: var(--color-primary, #3B1EFF);
 }
 
 .appt-actions-cell {
@@ -565,7 +565,7 @@ function statusClass(a: Appt): string {
   font-weight: 650;
   font-size: 14px;
   margin-bottom: 12px;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .alert-title-icon {
@@ -591,8 +591,8 @@ function statusClass(a: Appt): string {
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  background: #eef2ff;
-  color: #0040dc;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -610,7 +610,7 @@ function statusClass(a: Appt): string {
 .alert-main-text {
   font-size: 13px;
   font-weight: 550;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .alert-sub-warn {
@@ -638,7 +638,7 @@ function statusClass(a: Appt): string {
 .relance-patient-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .relance-meta {

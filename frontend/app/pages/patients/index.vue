@@ -259,14 +259,14 @@ const totalPages = computed(() =>
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--color-primary-soft, #eef2ff);
-  color: var(--color-primary, #0040dc);
+  background: var(--color-primary-soft, #D7E8FA);
+  color: var(--color-primary, #3B1EFF);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 11.5px;
   font-weight: 700;
-  border: 1px solid color-mix(in srgb, var(--color-primary, #0040dc) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary, #3B1EFF) 15%, transparent);
 }
 
 .patient-code-tag {
@@ -287,7 +287,7 @@ const totalPages = computed(() =>
 .patient-table-row:hover .row-arrow {
   opacity: 1;
   transform: translateX(2px);
-  color: var(--color-primary, #0040dc);
+  color: var(--color-primary, #3B1EFF);
 }
 
 [dir="rtl"] .patient-table-row:hover .row-arrow {

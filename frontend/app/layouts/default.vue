@@ -127,12 +127,12 @@ const userInitials = computed(() => {
         <NuxtLink to="/" class="sidebar-brand">
           <img
             src="~/assets/logo.svg"
-            alt="HKN"
+            alt="Dentilo"
             class="brand-logo-img"
           >
           <div v-if="!drawerCollapsed" class="brand-text-block">
             <span class="brand-title">{{ t("common.app_name") }}</span>
-            <span class="brand-tagline">Cabinet Dentaire</span>
+            <span class="brand-tagline">{{ t("common.app_byline") }}</span>
           </div>
         </NuxtLink>
 
@@ -247,15 +247,21 @@ const userInitials = computed(() => {
 
           <!-- User Profile & Logout -->
           <div v-if="auth.user.value" class="user-profile-badge">
-            <div class="user-avatar" :title="auth.user.value.full_name">
-              {{ userInitials }}
-            </div>
-            <div class="user-meta">
-              <span class="user-name">{{ auth.user.value.full_name }}</span>
-              <span class="user-role">
-                {{ auth.user.value.is_owner ? t("auth.role_responsable") : (auth.user.value.role === 'dentiste' ? t("auth.role_dentiste") : t("auth.role_reception")) }}
-              </span>
-            </div>
+            <NuxtLink
+              to="/mot-de-passe"
+              class="user-profile-link"
+              :title="t('auth.change_password')"
+            >
+              <div class="user-avatar">
+                {{ userInitials }}
+              </div>
+              <div class="user-meta">
+                <span class="user-name">{{ auth.user.value.full_name }}</span>
+                <span class="user-role">
+                  {{ auth.user.value.is_owner ? t("auth.role_responsable") : (auth.user.value.role === 'dentiste' ? t("auth.role_dentiste") : t("auth.role_reception")) }}
+                </span>
+              </div>
+            </NuxtLink>
             <button
               class="logout-icon-btn"
               :title="t('auth.logout')"
@@ -342,7 +348,7 @@ const userInitials = computed(() => {
 .brand-title {
   font-weight: 700;
   font-size: 14px;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -370,7 +376,7 @@ const userInitials = computed(() => {
 
 .sidebar-collapse-btn:hover {
   background: var(--color-bg, #f1f5f9);
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .sidebar.collapsed .sidebar-collapse-btn {
@@ -424,12 +430,12 @@ const userInitials = computed(() => {
 
 .nav-item:hover {
   background: var(--color-canvas, #f8fafc);
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .nav-item.router-link-active {
-  background: var(--color-primary-soft, #eef2ff);
-  color: var(--color-primary, #0040dc);
+  background: var(--color-primary-soft, #D7E8FA);
+  color: var(--color-primary, #3B1EFF);
   font-weight: 600;
 }
 
@@ -467,7 +473,7 @@ const userInitials = computed(() => {
 .footer-clinic-name {
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .footer-version {
@@ -510,7 +516,7 @@ const userInitials = computed(() => {
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 6px;
   padding: 6px;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   cursor: pointer;
 }
 
@@ -534,7 +540,7 @@ const userInitials = computed(() => {
 }
 
 .breadcrumb-current {
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   font-weight: 600;
 }
 
@@ -562,8 +568,8 @@ const userInitials = computed(() => {
 
 .header-search-btn:hover {
   background: var(--color-surface, #ffffff);
-  border-color: var(--color-primary, #0040dc);
-  box-shadow: 0 1px 3px rgba(0, 64, 220, 0.08);
+  border-color: var(--color-primary, #3B1EFF);
+  box-shadow: 0 1px 3px rgba(59, 30, 255, 0.08);
 }
 
 .search-btn-icon {
@@ -619,7 +625,7 @@ const userInitials = computed(() => {
 
 .lang-pill-btn.active {
   background: var(--color-surface, #ffffff);
-  color: var(--color-primary, #0040dc);
+  color: var(--color-primary, #3B1EFF);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
@@ -638,7 +644,7 @@ const userInitials = computed(() => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--color-primary, #0040dc);
+  background: var(--color-primary, #3B1EFF);
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -656,7 +662,7 @@ const userInitials = computed(() => {
 .user-name {
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   line-height: 1.2;
 }
 
@@ -665,6 +671,16 @@ const userInitials = computed(() => {
   color: var(--color-text-muted, #64748b);
   line-height: 1.2;
 }
+
+.user-profile-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+.user-profile-link:hover .user-name { text-decoration: underline; }
 
 .logout-icon-btn {
   background: transparent;
@@ -687,6 +703,15 @@ const userInitials = computed(() => {
 /* Page Body */
 .page-body {
   flex: 1;
+  /* Breathing room between the sidebar/edges and page content (was flush). */
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .page-body {
+    padding: var(--space-4);
+  }
 }
 
 /* Responsive Breakpoints */

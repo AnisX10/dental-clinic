@@ -1,4 +1,4 @@
-export const PRINT_HINT_KEY = "hkn:print-hint:v1"
+export const PRINT_HINT_KEY = "dentilo:print-hint:v1"
 
 export function usePrintHintOpen() {
   return useState("print:hint-open", () => false)

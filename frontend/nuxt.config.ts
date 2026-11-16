@@ -7,7 +7,7 @@ export default defineNuxtConfig({
     // Built assets are served by FastAPI under /_assets (see backend/app/main.py).
     buildAssetsDir: "/_assets/",
     head: {
-      title: "HKN — Cabinet Dentaire",
+      title: "Dentilo by Tasshil",
       htmlAttrs: { lang: "fr", dir: "ltr" },
       meta: [
         { charset: "utf-8" },
