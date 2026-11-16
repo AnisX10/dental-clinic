@@ -1,7 +1,6 @@
 """CLI: create users, seed catalog, run migrations."""
 import argparse
 import getpass
-import string
 import sys
 from pathlib import Path
 
@@ -345,21 +344,15 @@ def _demo_users_present(db) -> list[str]:
 
 def _prod_password_problem(password: str) -> str | None:
     """Production password policy: >=10 chars, letters + digits + symbol, not a known weak one."""
-    weak = {
-        "password", "password123", "password-123", "password1234",
-        "1234567890", "123456789a", "qwerty12345", "admin12345!",
-        "clinique123", "dentaire123", "azerty12345",
+    from app.core.security import PASSWORD_MIN_LENGTH, password_problem
+
+    messages = {
+        "too_short": f"at least {PASSWORD_MIN_LENGTH} characters (got {len(password)})",
+        "too_common": "too common / guessable",
+        "needs_mix": "must mix letters, digits and a symbol (e.g. Dr#-something-2026)",
     }
-    if len(password) < 10:
-        return f"at least 10 characters (got {len(password)})"
-    if password.lower() in weak:
-        return "too common / guessable"
-    has = (any(c in string.ascii_letters for c in password),
-           any(c.isdigit() for c in password),
-           any(c in string.punctuation for c in password))
-    if not all(has):
-        return "must mix letters, digits and a symbol (e.g. Dr#-something-2026)"
-    return None
+    problem = password_problem(password)
+    return messages[problem] if problem else None
 
 
 def _init_prod(args) -> int:
@@ -372,7 +365,9 @@ def _init_prod(args) -> int:
     username = (args.username or input("Owner username: ").strip().lower())
     full_name = args.full_name or input("Full name (e.g. Dr Benali Amine): ").strip()
     while True:
-        password = args.password or getpass.getpass("Password (>=10, letters+digits+symbol): ")
+        password = args.password or getpass.getpass(
+            "Mot de passe (10 caracteres min., lettres + chiffres + symbole, saisie masquee) : "
+        )
         if args.password:
             problem = _prod_password_problem(password)
             if problem:
@@ -381,11 +376,11 @@ def _init_prod(args) -> int:
             break
         problem = _prod_password_problem(password)
         if problem:
-            print(f"Password rejected: {problem}")
+            print(f"Mot de passe refuse ({problem}). Reessayez.")
             continue
-        confirm = getpass.getpass("Confirm password: ")
+        confirm = getpass.getpass("Confirmez le mot de passe : ")
         if password != confirm:
-            print("Passwords do not match, try again.")
+            print("Les deux mots de passe ne correspondent pas. Reessayez.")
             continue
         break
 

@@ -43,9 +43,21 @@ def get_current_user_optional(request: Request, db: OrmSession = Depends(get_db)
     return _load_session_user(db, token)
 
 
-def get_current_user(user: User | None = Depends(get_current_user_optional)) -> User:
+def get_current_user_allow_pending(user: User | None = Depends(get_current_user_optional)) -> User:
+    """Authenticated user, even one who still has to replace a bootstrap password.
+
+    Only /me, /logout and /change-password use this directly.
+    """
     if user is None:
         raise AppError("errors.unauthorized", status_code=401, code="unauthorized")
+    return user
+
+
+def get_current_user(user: User = Depends(get_current_user_allow_pending)) -> User:
+    if user.must_change_password:
+        raise AppError(
+            "errors.password_change_required", status_code=403, code="password_change_required"
+        )
     return user
 
 

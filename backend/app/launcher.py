@@ -1,9 +1,10 @@
-"""HKN Dentaire - Standalone Application Launcher.
+"""Dentilo - Standalone Application Launcher.
 
 Zero-configuration launcher that provides:
 1. Relocatable portable runtime compatibility.
 2. Port collision & race condition management (graceful [Errno 10048] handling).
-3. Automated database bootstrap (migrations + catalog + default doctor account on cold start).
+3. Automated database bootstrap (migrations + catalog + first owner account with a
+   random one-time password on cold start).
 4. Automatic application browser/window launch on ready.
 """
 import argparse
@@ -130,10 +131,8 @@ def ensure_database_bootstrapped() -> None:
     from alembic.config import Config
     from sqlalchemy import select
 
-    from app.core.config import get_settings
     from app.core.db import dispose_engine, get_session_factory
     from app.core.models import User
-    from app.core.services import create_user, seed_catalog
 
     ini = BACKEND_DIR / "alembic.ini"
     cfg = Config(str(ini))
@@ -153,63 +152,69 @@ def ensure_database_bootstrapped() -> None:
         with factory() as db:
             user_count = db.execute(select(func.count(User.id))).scalar() or 0
             if user_count == 0:
-                logger.info("Initializing default clinic account and treatment catalog...")
-                seed_catalog(db)
-                create_user(
-                    db,
-                    username="dentiste",
-                    password="Cabinet2026!",
-                    full_name="Dr. Dentiste",
-                    role="dentiste",
-                    is_owner=True,
-                )
-                db.commit()
-                logger.info("Default account created: dentiste / Cabinet2026!")
+                _create_first_owner(db)
+            _flag_default_passwords(db)
+            db.commit()
     except Exception as exc:
         logger.warning("Database bootstrap notice: %s", exc)
     finally:
         dispose_engine()
 
 
-DEFAULT_PERPETUAL_LICENSE = """{
-  "license": {
-    "artifact": "clinic-dentaire",
-    "form": 1,
-    "clinic": "Cabinet Dentaire",
-    "dentist": "Dr. Dentiste",
-    "installation": "*",
-    "issued_at": "2026-10-24"
-  },
-  "signature": "23K1Vt2J1Kt_seU55-wOgOlHk6siTiw97HNwhmhxInlGywVQamp8ySt5VgezQFUXktW7FySMshOjcLUhXOR5DQ=="
-}"""
+FIRST_ACCESS_FILENAME = "PREMIER-ACCES.txt"
 
 
-def ensure_perpetual_license() -> None:
-    """Ensure data/clinic.lic is present and active, auto-provisioning if missing."""
+def _create_first_owner(db) -> None:
+    """Cold start without install.bat: create the owner with a random one-time
+    password (never a shared default), written to data/PREMIER-ACCES.txt.
+    The account must change it at first login."""
     from app.core.config import get_settings
-    from app.licensing import service
+    from app.core.security import generate_bootstrap_password
+    from app.core.services import create_user, seed_catalog
+
+    logger.info("Initializing first clinic account and treatment catalog...")
+    password = generate_bootstrap_password()
+    seed_catalog(db)
+    user = create_user(
+        db,
+        username="dentiste",
+        password=password,
+        full_name="Dr. Dentiste",
+        role="dentiste",
+        is_owner=True,
+    )
+    user.must_change_password = True
 
     data_dir = get_settings().data_dir
     data_dir.mkdir(parents=True, exist_ok=True)
-    clinic_lic = data_dir / "clinic.lic"
-    license_lic = data_dir / "license.lic"
+    note = data_dir / FIRST_ACCESS_FILENAME
+    note.write_text(
+        "Dentilo - premier acces\r\n"
+        "========================\r\n\r\n"
+        "Identifiant : dentiste\r\n"
+        f"Mot de passe provisoire : {password}\r\n\r\n"
+        "Ce mot de passe doit etre change a la premiere connexion.\r\n"
+        "Supprimez ce fichier une fois connecte.\r\n",
+        encoding="utf-8",
+    )
+    logger.warning("First owner account 'dentiste' created. One-time password written to %s", note)
 
-    if not clinic_lic.is_file() and not license_lic.is_file():
-        logger.info("Auto-provisioning perpetual license to %s...", clinic_lic)
-        clinic_lic.write_text(DEFAULT_PERPETUAL_LICENSE.strip(), encoding="utf-8")
 
-    manager = service.get_manager()
-    state = manager.load()
-    if not state.active:
-        logger.warning("Existing license inactive (%s). Refreshing with universal license...", state.reason)
-        clinic_lic.write_text(DEFAULT_PERPETUAL_LICENSE.strip(), encoding="utf-8")
-        state = manager.load()
-    if state.active:
-        logger.info("Perpetual license active (clinic: %s)", (state.payload or {}).get("clinic"))
+def _flag_default_passwords(db) -> None:
+    """Existing installs created with the old public default password: force a change."""
+    from sqlalchemy import select
+
+    from app.core.models import User
+    from app.core.security import DEFAULT_PASSWORDS, verify_password
+
+    for user in db.execute(select(User).where(User.must_change_password.is_(False))).scalars():
+        if any(verify_password(pw, user.password_hash) for pw in DEFAULT_PASSWORDS):
+            user.must_change_password = True
+            logger.warning("Account '%s' still uses the public default password: change forced.", user.username)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="HKN Dentaire Server Launcher")
+    parser = argparse.ArgumentParser(description="Dentilo Server Launcher")
     parser.add_argument("--host", default="0.0.0.0", help="Host interface to bind (default: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind (default: 8000)")
     parser.add_argument("--no-browser", action="store_true", help="Do not automatically launch browser")
@@ -221,12 +226,12 @@ def main() -> int:
     host = args.host
     as_app = not args.browser_only
 
-    logger.info("Starting HKN Dentaire launcher (target port: %d)...", port)
+    logger.info("Starting Dentilo launcher (target port: %d)...", port)
 
     # 1. Pre-flight check: is port already occupied?
     if is_port_listening("127.0.0.1", port):
         if is_clinic_healthy(port):
-            logger.info("HKN Dentaire is ALREADY running on http://127.0.0.1:%d!", port)
+            logger.info("Dentilo is ALREADY running on http://127.0.0.1:%d!", port)
             if not args.no_browser:
                 open_browser(port, as_app=as_app)
             return 0
@@ -235,9 +240,9 @@ def main() -> int:
             kill_process_on_port(port)
             time.sleep(1.0)
 
-    # 2. Ensure database schema & initial account & license
+    # 2. Ensure database schema & initial account (the licence is never
+    #    auto-provisioned: an unlicensed install shows the licence screen)
     ensure_database_bootstrapped()
-    ensure_perpetual_license()
 
     # 3. Schedule browser opening upon server ready
     if not args.no_browser:
@@ -260,7 +265,7 @@ def main() -> int:
     except (OSError, SystemExit) as exc:
         time.sleep(0.5)
         if is_clinic_healthy(port):
-            logger.info("HKN Dentaire is active and healthy on port %d. Exiting launcher cleanly.", port)
+            logger.info("Dentilo is active and healthy on port %d. Exiting launcher cleanly.", port)
             if not args.no_browser:
                 open_browser(port, as_app=as_app)
             return 0

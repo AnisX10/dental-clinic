@@ -1,14 +1,16 @@
 r"""Build a customer-delivery zip of the clinic application.
 
-Usage: runtime\python.exe tools\make_release.py [--out PATH] [--name NAME] [--include-runtime] [--include-license]
+Usage: runtime\python.exe tools\make_release.py [--out PATH] [--name NAME] [--include-runtime]
 
 Produces a zip that contains what a clinic needs:
 - backend source (app, migrations; tests excluded)
 - frontend pre-built SPA (.output/public)
 - isolated portable Python runtime (runtime/) with PostgreSQL 16 embedded (pgserver)
-- universal perpetual license (data/clinic.lic)
 - convenience scripts (start.bat, install.bat, stop.bat, desktop shortcut, silent launcher)
-Excludes: .git, .venv, e2e, tests, data/pgdata, tools/license/private.pem.
+Excludes: .git, .venv, e2e, tests, the whole data/ folder (database, backups, any
+.lic file) and tools/license/private.pem. Licences are per installation: issue
+one with tools/license.py from the installation ID shown on the licence screen
+and deliver it separately.
 """
 
 import argparse
@@ -59,7 +61,7 @@ EXCLUDE_FILES = {
 }
 
 
-def keep(path: Path, include_build: bool = True, include_runtime: bool = True, include_license: bool = True) -> bool:
+def keep(path: Path, include_build: bool = True, include_runtime: bool = True) -> bool:
     rel = path.relative_to(REPO)
     parts = rel.parts
 
@@ -69,7 +71,6 @@ def keep(path: Path, include_build: bool = True, include_runtime: bool = True, i
             "DEPLOY.md",
             "README.md",
             "INSTALLATION_GUIDE.md",
-            "HKN_Dentaire_Installation_Guide.pdf",
             "install.bat",
             "start.bat",
             "stop.bat",
@@ -81,8 +82,6 @@ def keep(path: Path, include_build: bool = True, include_runtime: bool = True, i
     include_dirs = list(DEFAULT_INCLUDE_DIRS)
     if include_runtime:
         include_dirs.append("runtime")
-    if include_license:
-        include_dirs.append("data")
 
     if top_dir not in include_dirs:
         return False
@@ -93,19 +92,14 @@ def keep(path: Path, include_build: bool = True, include_runtime: bool = True, i
             return False
         return path.suffix.lower() not in EXCLUDE_SUFFIXES
 
-    # Handling data
-    if top_dir == "data":
-        if not include_license:
-            return False
-        return rel.name in ("clinic.lic", "license.lic")
-
     # Handling frontend build
     if include_build and parts[:3] == ("frontend", ".output", "public"):
         pass
     elif any(p in EXCLUDE_DIR_NAMES for p in parts):
         return False
 
-    if not include_license and path.suffix.lower() == ".lic":
+    # Never ship a licence file: each installation gets its own.
+    if path.suffix.lower() == ".lic":
         return False
 
     if path.suffix.lower() in EXCLUDE_SUFFIXES:
@@ -122,7 +116,6 @@ def main() -> int:
     parser.add_argument("--force", action="store_true", help="overwrite existing zip if it exists")
     parser.add_argument("--include-build", action="store_true", default=True, help="include precompiled frontend/.output/public")
     parser.add_argument("--include-runtime", action="store_true", default=True, help="include isolated portable runtime")
-    parser.add_argument("--include-license", action="store_true", default=True, help="include perpetual license file")
     args = parser.parse_args()
 
     if args.include_build:
@@ -162,7 +155,6 @@ def main() -> int:
             p,
             include_build=args.include_build,
             include_runtime=args.include_runtime,
-            include_license=args.include_license,
         )
     ]
     if not files:
@@ -199,10 +191,16 @@ def main() -> int:
         zip_path.unlink()
         return 4
 
+    # Never ship licences or clinic data
+    leaked = [n for n in names if n.lower().endswith(".lic") or "/data/" in n.lower()]
+    if leaked:
+        print(f"SAFETY ABORT: licence or data files present: {leaked}")
+        zip_path.unlink()
+        return 4
+
     # Ensure required items are in zip
     assert any("runtime/python.exe" in n for n in names), "Missing runtime/python.exe in zip"
     assert any("frontend/.output/public/index.html" in n for n in names), "Missing frontend build in zip"
-    assert any("data/clinic.lic" in n for n in names), "Missing data/clinic.lic in zip"
     assert any("scripts/start.bat" in n for n in names), "Missing start.bat in zip"
 
     zip_size_mb = zip_path.stat().st_size / (1024 * 1024)
