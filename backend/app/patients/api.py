@@ -69,7 +69,7 @@ def list_patients(
     page: int = 1,
     per_page: int = 30,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     page = max(1, page)
     per_page = min(max(1, per_page), 100)
@@ -85,7 +85,7 @@ def create_patient(
     payload: PatientCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     patient = service.create_patient(db, data=payload.model_dump())
     log_action(
@@ -104,7 +104,7 @@ def list_dormant_patients(
     days: int = 180,
     limit: int = 20,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     """Call-back list (relance): active patients not seen for `days`+ days."""
     days = min(max(1, days), 3650)
@@ -116,7 +116,7 @@ def list_dormant_patients(
 def get_patient(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     patient = service.get_patient_or_404(db, patient_id)
     return {"patient": service.serialize_patient(patient, include_medical=True)}
@@ -128,7 +128,7 @@ def update_patient(
     payload: PatientUpdate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     patient = service.get_patient_or_404(db, patient_id)
     fields = service.validate_patient_input(
@@ -169,7 +169,7 @@ def update_patient(
 def get_medical(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     patient = service.get_patient_or_404(db, patient_id)
     medical = service.get_or_create_medical(db, patient)
@@ -182,7 +182,7 @@ def update_medical(
     payload: MedicalUpdate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     patient = service.get_patient_or_404(db, patient_id)
     medical = service.get_or_create_medical(db, patient)
@@ -207,7 +207,7 @@ def upload_attachment(
     request: Request,
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     patient = service.get_patient_or_404(db, patient_id)
 
@@ -254,7 +254,7 @@ def upload_attachment(
 def list_attachments(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     service.get_patient_or_404(db, patient_id)
     rows = (
@@ -274,7 +274,7 @@ def download_attachment(
     patient_id: int,
     attachment_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     service.get_patient_or_404(db, patient_id)
     row = db.get(Attachment, attachment_id)
@@ -298,7 +298,7 @@ def delete_attachment(
     attachment_id: int,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     service.get_patient_or_404(db, patient_id)
     row = db.get(Attachment, attachment_id)

@@ -36,7 +36,7 @@ def _load_session_user(db: OrmSession, token: str) -> User | None:
     return row.user if row.user.is_active else None
 
 
-def get_current_user_optional(request: Request, db: OrmSession = Depends(get_db)) -> User | None:
+def get_current_user_optional(request: Request, db: OrmSession = Depends(get_db, scope="function")) -> User | None:
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         return None

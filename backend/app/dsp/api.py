@@ -57,7 +57,7 @@ def list_dsp(
     caisse: str | None = None,
     q: str = "",
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     return {"registries": service.list_registries(db, caisse=caisse, q=q)}
 
@@ -76,7 +76,7 @@ def create_dsp(
     payload: DspCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     data = service.validate_registry_input(
         db,
@@ -111,7 +111,7 @@ def create_dsp(
 def get_dsp(
     dsp_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     from datetime import timedelta
 
@@ -149,7 +149,7 @@ def update_dsp(
     payload: DspUpdate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     row = service.get_registry_or_404(db, dsp_id)
     row = service.update_registry(db, row, payload=payload.model_dump(exclude_unset=True))
@@ -171,7 +171,7 @@ def add_act(
     payload: ActCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     registry = service.get_registry_or_404(db, dsp_id)
     act = service.create_act(db, registry, payload=payload.model_dump(), actor_id=user.id)
@@ -194,7 +194,7 @@ def edit_act(
     payload: ActUpdate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     registry = service.get_registry_or_404(db, dsp_id)
     act = service.get_act_or_404(db, registry, act_id)
@@ -239,7 +239,7 @@ def delete_act_endpoint(
     act_id: int,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     registry = service.get_registry_or_404(db, dsp_id)
     service.delete_act(db, registry, act_id)

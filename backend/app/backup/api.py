@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/backup", tags=["backup"])
 
 
 @router.get("/status")
-def status(user: User = Depends(get_current_user), db: OrmSession = Depends(get_db)):
+def status(user: User = Depends(get_current_user), db: OrmSession = Depends(get_db, scope="function")):
     return service.backup_status(db)
 
 
@@ -21,7 +21,7 @@ def status(user: User = Depends(get_current_user), db: OrmSession = Depends(get_
 def run_now(
     request: Request,
     user: User = Depends(require_owner),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     try:
         record = service.run_backup(db, kind="manual")

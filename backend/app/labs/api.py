@@ -38,7 +38,7 @@ class LabUpdate(BaseModel):
 def list_labs(
     include_inactive: bool = True,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     rows = service.list_labs(db, include_inactive=include_inactive)
     return {"labs": [service.serialize_lab(lab) for lab in rows]}
@@ -49,7 +49,7 @@ def create_lab(
     payload: LabCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     lab = service.create_lab(
         db, name=payload.name, phone=payload.phone, address=payload.address, notes=payload.notes
@@ -67,7 +67,7 @@ def update_lab(
     payload: LabUpdate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     lab = service.get_lab_or_404(db, lab_id)
     service.update_lab(
@@ -120,7 +120,7 @@ def list_orders(
     lab_id: int | None = None,
     limit: int = 200,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     if status is not None and status not in service.ORDER_STATUSES:
         from app.core.errors import AppError
@@ -147,7 +147,7 @@ def create_order(
     payload: OrderCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     order = service.create_order(
         db,
@@ -176,7 +176,7 @@ def update_order(
     payload: OrderUpdate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     order = service.get_order_or_404(db, order_id)
     service.update_order(
@@ -197,7 +197,7 @@ def set_order_status(
     payload: OrderStatusIn,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     order = service.get_order_or_404(db, order_id)
     service.set_order_status(db, order, status=payload.status, actor_id=user.id)
@@ -212,7 +212,7 @@ def set_order_status(
 def patient_orders(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     from app.patients.service import get_patient_or_404
 
@@ -251,7 +251,7 @@ def list_invoices(
     lab_id: int | None = None,
     limit: int = 200,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     from app.core.models import LabInvoice
 
@@ -269,7 +269,7 @@ def list_invoices(
 def get_invoice(
     invoice_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     invoice = service.get_invoice_or_404(db, invoice_id)
     return {"invoice": service.serialize_invoice(db, invoice, include_payments=True)}
@@ -280,7 +280,7 @@ def create_invoice(
     payload: InvoiceCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     invoice = service.create_invoice(
         db, lab_id=payload.lab_id, number=payload.number, label=payload.label,
@@ -301,7 +301,7 @@ def pay_invoice(
     payload: InvoicePaymentCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     payment = service.create_invoice_payment(
         db, invoice_id=invoice_id, amount=payload.amount, note=payload.note, actor_id=user.id
