@@ -292,7 +292,7 @@ onMounted(async () => {
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
 
     <div v-if="!patient" class="card empty-state">
-      <span class="empty-icon">▤</span>
+      <AppIcon name="documents" size="32" class="empty-icon" />
       {{ t("common.search_placeholder") }}
     </div>
 
@@ -482,7 +482,7 @@ onMounted(async () => {
           <div v-for="i in 4" :key="i" class="skeleton skeleton-row" />
         </div>
         <div v-else-if="!docs.length" class="empty-state">
-          <span class="empty-icon">▤</span>
+          <AppIcon name="documents" size="32" class="empty-icon" />
           {{ t("documents.aucun") }}
           <div class="empty-hint">{{ t("documents.nouveau") }}</div>
         </div>

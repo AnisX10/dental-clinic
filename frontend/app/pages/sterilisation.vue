@@ -224,7 +224,7 @@ async function finishCycle(result: string) {
         <div v-for="i in 4" :key="i" class="skeleton skeleton-line" :class="i % 2 ? 'w-60' : 'w-40'" />
       </div>
       <div v-else-if="!cycles.length" class="card empty-state">
-        <span class="empty-icon">☢</span>
+        <AppIcon name="sterilisation" size="32" class="empty-icon" />
         {{ t("sterilisation.aucun") }}
         <div class="empty-hint">{{ t("sterilisation.nouveaux_cycle") }}</div>
       </div>

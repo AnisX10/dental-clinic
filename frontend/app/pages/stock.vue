@@ -371,7 +371,7 @@ await load()
         </div>
 
         <div v-else-if="!items.length" class="empty-state">
-          <span class="empty-icon">◫</span>
+          <AppIcon name="stock" size="32" class="empty-icon" />
           {{ t("stock.aucun") }}
           <div class="empty-hint">{{ t("stock.nouvel_article") }}</div>
         </div>

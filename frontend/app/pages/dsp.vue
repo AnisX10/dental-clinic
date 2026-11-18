@@ -371,7 +371,7 @@ async function deleteAct(a: Act) {
         <div v-for="i in 5" :key="i" class="skeleton skeleton-line" :class="i % 2 ? 'w-60' : 'w-40'" />
       </div>
       <div v-else-if="!registries.length" class="card empty-state">
-        <span class="empty-icon">◈</span>
+        <AppIcon name="dsp" size="32" class="empty-icon" />
         {{ t("dsp.aucun") }}
         <div class="empty-hint">{{ t("dsp.nouveau") }}</div>
       </div>

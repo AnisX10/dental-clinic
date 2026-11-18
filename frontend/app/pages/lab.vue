@@ -454,7 +454,7 @@ await loadOrders()
             style="cursor:pointer;"
             @click="statusFilter = s"
           >
-            {{ t("common.none") }}
+            {{ t("common.all") }}
           </button>
           <button
             v-for="s in ORDER_STATUSES"
@@ -473,7 +473,7 @@ await loadOrders()
         </div>
 
         <div v-else-if="!orders.length" class="empty-state">
-          <span class="empty-icon">⚒</span>
+          <AppIcon name="lab" size="32" class="empty-icon" />
           {{ t("lab.aucun_ordre") }}
           <div class="empty-hint">{{ t("lab.new_order") }}</div>
         </div>
@@ -571,7 +571,7 @@ await loadOrders()
           </div>
 
           <div v-else-if="!invoices.length" class="empty-state">
-            <span class="empty-icon">▤</span>
+            <AppIcon name="devis" size="32" class="empty-icon" />
             {{ t("lab.aucune_facture") }}
             <div class="empty-hint">{{ t("lab.nouveau_facture") }}</div>
           </div>
@@ -833,7 +833,7 @@ await loadOrders()
         <button class="btn btn-secondary btn-sm" @click="openCreateLab">{{ t("common.add") }}</button>
       </div>
       <div v-if="!labs.length" class="empty-state">
-        <span class="empty-icon">⚒</span>
+        <AppIcon name="lab" size="32" class="empty-icon" />
         {{ t("lab.aucun") }}
         <div class="empty-hint">{{ t("lab.nom_lab") }}</div>
       </div>

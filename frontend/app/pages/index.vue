@@ -207,9 +207,9 @@ function statusClass(a: Appt): string {
           <AppIcon name="calendar" size="20" />
         </div>
         <div class="kpi-info">
-          <span class="kpi-label">Rendez-vous</span>
+          <span class="kpi-label">{{ t("today.kpi_rdv") }}</span>
           <span class="kpi-val">{{ stats.total }}</span>
-          <span class="kpi-sub">{{ stats.termines }} terminé(s)</span>
+          <span class="kpi-sub">{{ t("today.kpi_termines", { n: stats.termines }) }}</span>
         </div>
       </div>
 
@@ -218,9 +218,9 @@ function statusClass(a: Appt): string {
           <AppIcon name="tooth" size="20" />
         </div>
         <div class="kpi-info">
-          <span class="kpi-label">Au fauteuil</span>
+          <span class="kpi-label">{{ t("today.kpi_fauteuil") }}</span>
           <span class="kpi-val">{{ stats.enCours }}</span>
-          <span class="kpi-sub">En cours de soin</span>
+          <span class="kpi-sub">{{ t("today.kpi_fauteuil_sub") }}</span>
         </div>
       </div>
 
@@ -229,9 +229,9 @@ function statusClass(a: Appt): string {
           <AppIcon name="clock" size="20" />
         </div>
         <div class="kpi-info">
-          <span class="kpi-label">Salle d'attente</span>
+          <span class="kpi-label">{{ t("today.kpi_attente") }}</span>
           <span class="kpi-val">{{ stats.enAttente }}</span>
-          <span class="kpi-sub">Patient(s) arrivés</span>
+          <span class="kpi-sub">{{ t("today.kpi_attente_sub") }}</span>
         </div>
       </div>
 
@@ -242,7 +242,7 @@ function statusClass(a: Appt): string {
         <div class="kpi-info">
           <span class="kpi-label">{{ t("today.recettes_du_jour") }}</span>
           <span class="kpi-val">{{ data ? money.fmt(data.summary.recettes_du_jour) : "0 DA" }}</span>
-          <span class="kpi-sub">{{ data?.summary.nombre_paiements ?? 0 }} encaissement(s)</span>
+          <span class="kpi-sub">{{ t("today.kpi_encaissements", { n: data?.summary.nombre_paiements ?? 0 }) }}</span>
         </div>
       </div>
     </div>
@@ -252,8 +252,8 @@ function statusClass(a: Appt): string {
       <!-- Appointments Main Card -->
       <div class="card appointments-card" style="padding:0;">
         <div class="card-header-bar">
-          <span class="card-header-title">Séances et rendez-vous du jour</span>
-          <span class="badge badge-a_venir">{{ data?.appointments?.length ?? 0 }} patients</span>
+          <span class="card-header-title">{{ t("today.seances_du_jour") }}</span>
+          <span class="badge badge-a_venir">{{ t("today.n_patients", { n: data?.appointments?.length ?? 0 }) }}</span>
         </div>
 
         <div v-if="loading" style="padding:16px;" aria-hidden="true">
@@ -361,7 +361,7 @@ function statusClass(a: Appt): string {
               </div>
               <div class="alert-text-box">
                 <span class="alert-main-text">{{ lowItems.length }} {{ t("today.stock_articles_bas") }}</span>
-                <span class="alert-sub-warn">Niveaux critiques atteints</span>
+                <span class="alert-sub-warn">{{ t("today.stock_critique") }}</span>
               </div>
             </NuxtLink>
           </template>
@@ -372,7 +372,7 @@ function statusClass(a: Appt): string {
             </div>
             <div class="alert-text-box">
               <span class="alert-main-text danger-text">{{ t("today.backup_overdue") }}</span>
-              <span class="alert-sub-warn">Vérifiez vos sauvegardes</span>
+              <span class="alert-sub-warn">{{ t("today.backup_check") }}</span>
             </div>
           </NuxtLink>
         </div>

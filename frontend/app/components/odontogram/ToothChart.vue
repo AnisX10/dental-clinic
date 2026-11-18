@@ -64,6 +64,28 @@ const halfCount = computed(() => arches.value.upper.length / 2)
 const rowW = computed(() => arches.value.upper.length * STRIDE - 4 + GAP_W)
 const midX = computed(() => halfCount.value * STRIDE + 9)
 
+// Fit the fixed-geometry chart to the card: at common laptop widths (1366 to
+// 1440 px) the 16-tooth row is wider than the space beside the side panel and
+// the last 3-4 teeth were cut off behind a scrollbar. CSS zoom scales layout
+// and hit areas together (Chromium/Edge, the browsers the launcher opens).
+const fitEl = ref<HTMLElement | null>(null)
+const fitScale = ref(1)
+let fitObserver: ResizeObserver | null = null
+const naturalW = computed(() => rowW.value + 16) // + .odonto horizontal padding
+function updateFit() {
+  const avail = fitEl.value?.clientWidth ?? 0
+  fitScale.value = avail > 0 ? Math.min(1, avail / naturalW.value) : 1
+}
+onMounted(() => {
+  updateFit()
+  if (typeof ResizeObserver !== "undefined" && fitEl.value) {
+    fitObserver = new ResizeObserver(updateFit)
+    fitObserver.observe(fitEl.value)
+  }
+})
+onBeforeUnmount(() => fitObserver?.disconnect())
+watch(naturalW, () => nextTick(updateFit))
+
 const wholeByTooth = computed(() => {
   const map = new Map<number, string>()
   for (const c of props.conditions) {
@@ -160,7 +182,8 @@ const LEGEND = [
 </script>
 
 <template>
-  <div class="odonto" dir="ltr">
+  <div ref="fitEl" class="odonto-fit">
+  <div class="odonto" dir="ltr" :style="fitScale < 1 ? { zoom: fitScale } : undefined">
     <svg class="odonto-defs" width="0" height="0" aria-hidden="true">
       <defs>
         <pattern :id="hatchId" patternUnits="userSpaceOnUse" width="5" height="5">
@@ -281,5 +304,6 @@ const LEGEND = [
         {{ t(`odontogram.cond_${l.key}`) }}
       </span>
     </div>
+  </div>
   </div>
 </template>

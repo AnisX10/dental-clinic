@@ -88,7 +88,7 @@ async function save() {
     <div class="toolbar">
       <div>
         <h1 class="page-title">{{ t("nav.traitements") }}</h1>
-        <p class="page-subtitle">{{ items.length }}</p>
+        <p class="page-subtitle">{{ t("treatments.catalog_count", { n: items.length }) }}</p>
       </div>
       <button v-if="auth.user.value?.is_owner" class="btn btn-primary" @click="openCreate">
         {{ t("common.add") }}
@@ -101,7 +101,7 @@ async function save() {
       <div v-for="i in 6" :key="i" class="skeleton skeleton-line" :class="i % 2 ? 'w-60' : 'w-40'" />
     </div>
     <div v-else-if="!items.length" class="card empty-state">
-      <span class="empty-icon">✚</span>
+      <AppIcon name="treatments" size="32" class="empty-icon" />
       {{ t("treatments.aucun") }}
     </div>
 

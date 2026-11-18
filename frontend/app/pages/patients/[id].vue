@@ -534,7 +534,7 @@ async function saveRdv() {
             <AppIcon name="chevron-left" size="16" />
             <span>{{ t("common.back") }}</span>
           </NuxtLink>
-          <span class="patient-code-badge">Dossier #{{ patient.code }}</span>
+          <span class="patient-code-badge">{{ t("patients.dossier_code", { code: patient.code }) }}</span>
         </div>
 
         <div class="patient-hero-body">
@@ -574,7 +574,7 @@ async function saveRdv() {
             <!-- Medical Alerts Warning Banner -->
             <div v-if="medicalAlerts.length" class="patient-medical-alert-chip">
               <AppIcon name="alert-triangle" size="14" class="alert-icon" />
-              <span class="alert-label">Alerte médicale :</span>
+              <span class="alert-label">{{ t("patients.alerte_medicale") }}</span>
               <span class="alert-content">{{ medicalAlerts.join(" · ") }}</span>
             </div>
           </div>
