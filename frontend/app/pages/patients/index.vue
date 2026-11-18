@@ -146,7 +146,7 @@ const totalPages = computed(() =>
               <span class="patient-code-tag">#{{ p.code }}</span>
             </td>
             <td style="font-variant-numeric:tabular-nums;color:var(--color-text-muted,#64748b);">
-              {{ p.telephone }}
+              <bdi dir="ltr">{{ p.telephone }}</bdi>
             </td>
             <td style="text-align:end;color:var(--color-text-subtle,#94a3b8);">
               <AppIcon name="chevron-right" size="16" class="row-arrow" />

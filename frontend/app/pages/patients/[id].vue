@@ -554,11 +554,11 @@ async function saveRdv() {
             <div class="patient-chips-row">
               <a :href="'tel:' + patient.telephone" class="patient-chip patient-chip-link" :title="patient.telephone">
                 <AppIcon name="phone" size="13" />
-                <span>{{ patient.telephone }}</span>
+                <span><bdi dir="ltr">{{ patient.telephone }}</bdi></span>
               </a>
               <span v-if="patient.telephone2" class="patient-chip">
                 <AppIcon name="phone" size="13" />
-                <span>{{ patient.telephone2 }}</span>
+                <span><bdi dir="ltr">{{ patient.telephone2 }}</bdi></span>
               </span>
               <span v-if="patient.age_years !== null" class="patient-chip">
                 <AppIcon name="calendar" size="13" />

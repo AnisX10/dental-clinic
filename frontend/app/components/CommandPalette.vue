@@ -136,7 +136,7 @@ defineExpose({ open, close })
             </div>
             <div class="cmd-item-info">
               <span class="cmd-item-name">{{ patient.prenom }} {{ patient.nom }}</span>
-              <span class="cmd-item-phone">{{ patient.telephone }} · {{ patient.code }}</span>
+              <span class="cmd-item-phone"><bdi dir="ltr">{{ patient.telephone }}</bdi> · {{ patient.code }}</span>
             </div>
             <AppIcon name="chevron-right" size="16" class="cmd-item-arrow" />
           </li>

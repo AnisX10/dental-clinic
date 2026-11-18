@@ -275,7 +275,7 @@ function printDevis() {
         <div>
           <p v-if="currentPatient" class="dv-patient">
             <strong>{{ currentPatient.nom }} {{ currentPatient.prenom }}</strong>
-            <span class="small muted" style="margin-inline-start:8px;">{{ currentPatient.telephone }}</span>
+            <span class="small muted" style="margin-inline-start:8px;"><bdi dir="ltr">{{ currentPatient.telephone }}</bdi></span>
           </p>
           <p class="small muted" style="margin:0;">
             {{ t("documents.date") }} : {{ dates.fmtDate(current.issue_date) }}
@@ -432,7 +432,7 @@ function printDevis() {
               @click="pickedPatient = p; patientResults = []; patientQuery = ''"
             >
               <strong>{{ p.nom }} {{ p.prenom }}</strong>
-              <span class="small muted" style="margin-inline-start:8px;">{{ p.telephone }}</span>
+              <span class="small muted" style="margin-inline-start:8px;"><bdi dir="ltr">{{ p.telephone }}</bdi></span>
             </div>
           </div>
         </div>
@@ -440,7 +440,7 @@ function printDevis() {
       <template v-else>
         <p class="small" style="margin-bottom:12px;">
           <strong>{{ pickedPatient.nom }} {{ pickedPatient.prenom }}</strong>
-          <span class="muted" style="margin-inline-start:8px;">{{ pickedPatient.telephone }}</span>
+          <span class="muted" style="margin-inline-start:8px;"><bdi dir="ltr">{{ pickedPatient.telephone }}</bdi></span>
           <button class="btn btn-text btn-sm" style="margin-inline-start:8px;" @click="pickedPatient = null">
             {{ t("common.back") }}
           </button>

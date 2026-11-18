@@ -624,7 +624,7 @@ await loadOrders()
             <li v-for="hit in patientHits" :key="hit.id">
               <button type="button" @click="pickPatient(hit)">
                 <strong>{{ hit.nom }} {{ hit.prenom }}</strong>
-                <span class="small muted"> · {{ hit.telephone }}</span>
+                <span class="small muted"> · <bdi dir="ltr">{{ hit.telephone }}</bdi></span>
               </button>
             </li>
           </ul>

@@ -257,7 +257,7 @@ onMounted(async () => {
       <div>
         <h1 class="page-title">{{ t("documents.title") }}</h1>
         <p v-if="patient" class="page-subtitle">
-          {{ patient.nom }} {{ patient.prenom }} · {{ patient.telephone }} · {{ patient.code }}
+          {{ patient.nom }} {{ patient.prenom }} · <bdi dir="ltr">{{ patient.telephone }}</bdi> · {{ patient.code }}
         </p>
       </div>
       <div style="display:flex;gap:12px;align-items:center;">
@@ -276,7 +276,7 @@ onMounted(async () => {
               @click="pickPatient(p)"
             >
               <strong>{{ p.nom }} {{ p.prenom }}</strong>
-              <span class="small muted" style="margin-inline-start:8px;">{{ p.telephone }}</span>
+              <span class="small muted" style="margin-inline-start:8px;"><bdi dir="ltr">{{ p.telephone }}</bdi></span>
             </div>
           </div>
         </div>

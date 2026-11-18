@@ -278,7 +278,7 @@ function statusClass(a: Appt): string {
                   </span>
                 </div>
               </td>
-              <td>
+              <td class="appt-patient-cell">
                 <div class="patient-cell-wrap">
                   <div class="patient-mini-avatar">
                     {{ ((a.patient.prenom?.[0] || '') + (a.patient.nom?.[0] || '')).toUpperCase() }}
@@ -287,17 +287,16 @@ function statusClass(a: Appt): string {
                     <NuxtLink :to="`/patients/${a.patient.id}`" class="patient-cell-name">
                       {{ a.patient.nom }} {{ a.patient.prenom }}
                     </NuxtLink>
-                    <div class="small muted">{{ a.patient.telephone }} <span v-if="a.motif">· {{ a.motif }}</span></div>
+                    <div class="small muted"><bdi dir="ltr">{{ a.patient.telephone }}</bdi> <span v-if="a.motif">· {{ a.motif }}</span></div>
                   </div>
                 </div>
               </td>
               <td style="width:120px;">
                 <span :class="statusClass(a)">{{ t(statusKey(a)) }}</span>
               </td>
-              <td
-                v-if="!a.cancelled && !a.absent && a.status !== 'termine'"
-                class="appt-actions-cell"
-              >
+              <!-- Every row keeps the same cells so columns line up. -->
+              <td class="appt-actions-cell">
+                <div v-if="!a.cancelled && !a.absent && a.status !== 'termine'" class="appt-actions">
                 <button
                   v-for="n in NEXT[a.status] ?? []"
                   :key="n.to"
@@ -307,13 +306,11 @@ function statusClass(a: Appt): string {
                 >
                   {{ t(n.key) }}
                 </button>
+                </div>
               </td>
-              <td
-                v-if="!a.cancelled && !a.absent"
-                style="width:1%;white-space:nowrap;"
-              >
+              <td style="width:1%;white-space:nowrap;">
                 <button
-                  v-if="a.status === 'a_venir'"
+                  v-if="a.status === 'a_venir' && !a.cancelled && !a.absent"
                   class="btn btn-text btn-sm"
                   :disabled="busyId === a.id"
                   :title="t('action.cancel_rdv')"
@@ -390,7 +387,7 @@ function statusClass(a: Appt): string {
           >
             <div class="relance-patient-name">{{ p.nom }} {{ p.prenom }}</div>
             <div class="relance-meta">
-              {{ p.days_since_visit }} {{ t("today.relance_jours") }} · {{ p.telephone }}
+              {{ p.days_since_visit }} {{ t("today.relance_jours") }} · <bdi dir="ltr">{{ p.telephone }}</bdi>
             </div>
           </NuxtLink>
         </div>
@@ -546,9 +543,17 @@ function statusClass(a: Appt): string {
 .appt-actions-cell {
   width: 1%;
   white-space: nowrap;
+  padding-inline-end: 8px;
+}
+
+.appt-actions {
   display: flex;
   gap: 6px;
-  padding-inline-end: 16px;
+  justify-content: flex-end;
+}
+
+.appt-patient-cell {
+  min-width: 220px;
 }
 
 /* Side Column Cards */

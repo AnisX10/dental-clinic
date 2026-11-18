@@ -247,7 +247,7 @@ function statusClass(a: Appt): string {
                     {{ a.patient.nom }} {{ a.patient.prenom }}
                   </div>
                   <div class="small muted" style="font-variant-numeric:tabular-nums;">
-                    {{ a.patient.telephone }}
+                    <bdi dir="ltr">{{ a.patient.telephone }}</bdi>
                     <span v-if="a.motif"> · {{ a.motif }}</span>
                   </div>
                 </div>
@@ -299,7 +299,7 @@ function statusClass(a: Appt): string {
               @click="pickPatient(p)"
             >
               <strong>{{ p.nom }} {{ p.prenom }}</strong>
-              <span class="small muted" style="margin-inline-start:8px;">{{ p.telephone }}</span>
+              <span class="small muted" style="margin-inline-start:8px;"><bdi dir="ltr">{{ p.telephone }}</bdi></span>
             </div>
           </div>
         </div>
@@ -310,7 +310,7 @@ function statusClass(a: Appt): string {
         >
           <span>
             {{ selectedPatient.nom }} {{ selectedPatient.prenom }}
-            <span class="small">{{ selectedPatient.telephone }}</span>
+            <span class="small"><bdi dir="ltr">{{ selectedPatient.telephone }}</bdi></span>
           </span>
           <button class="btn btn-text btn-sm" @click="selectedPatient = null">{{ t("common.back") }}</button>
         </div>

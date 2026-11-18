@@ -65,7 +65,7 @@ function openChart(p: PatientRow) {
           @click="openChart(p)"
         >
           <strong>{{ p.nom }} {{ p.prenom }}</strong>
-          <span class="small muted">{{ p.telephone }}</span>
+          <span class="small muted"><bdi dir="ltr">{{ p.telephone }}</bdi></span>
         </button>
       </div>
       <div v-else-if="patientQuery.trim() && !searching" class="small muted" style="margin-top:8px;">
