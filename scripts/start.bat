@@ -25,7 +25,7 @@ if exist "%ROOT_DIR%\runtime\python.exe" (
 )
 
 echo =======================================================================
-echo          HKN Dentaire - Demarrage de l'application
+echo          Dentilo - Demarrage de l'application
 echo =======================================================================
 echo.
 echo Initialisation et verification de l'environnement...

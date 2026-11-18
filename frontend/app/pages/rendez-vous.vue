@@ -247,7 +247,7 @@ function statusClass(a: Appt): string {
                     {{ a.patient.nom }} {{ a.patient.prenom }}
                   </div>
                   <div class="small muted" style="font-variant-numeric:tabular-nums;">
-                    {{ a.patient.telephone }}
+                    <bdi dir="ltr">{{ a.patient.telephone }}</bdi>
                     <span v-if="a.motif"> · {{ a.motif }}</span>
                   </div>
                 </div>
@@ -299,7 +299,7 @@ function statusClass(a: Appt): string {
               @click="pickPatient(p)"
             >
               <strong>{{ p.nom }} {{ p.prenom }}</strong>
-              <span class="small muted" style="margin-inline-start:8px;">{{ p.telephone }}</span>
+              <span class="small muted" style="margin-inline-start:8px;"><bdi dir="ltr">{{ p.telephone }}</bdi></span>
             </div>
           </div>
         </div>
@@ -310,7 +310,7 @@ function statusClass(a: Appt): string {
         >
           <span>
             {{ selectedPatient.nom }} {{ selectedPatient.prenom }}
-            <span class="small">{{ selectedPatient.telephone }}</span>
+            <span class="small"><bdi dir="ltr">{{ selectedPatient.telephone }}</bdi></span>
           </span>
           <button class="btn btn-text btn-sm" @click="selectedPatient = null">{{ t("common.back") }}</button>
         </div>
@@ -375,7 +375,7 @@ function statusClass(a: Appt): string {
   gap: 6px;
   font-size: 13px;
   font-weight: 650;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   background: var(--color-canvas, #f8fafc);
   padding: 3px 8px;
   border-radius: 6px;
@@ -386,14 +386,14 @@ function statusClass(a: Appt): string {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--color-primary-soft, #eef2ff);
-  color: var(--color-primary, #0040dc);
+  background: var(--color-primary-soft, #D7E8FA);
+  color: var(--color-primary, #3B1EFF);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 11.5px;
   font-weight: 700;
   flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--color-primary, #0040dc) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary, #3B1EFF) 15%, transparent);
 }
 </style>

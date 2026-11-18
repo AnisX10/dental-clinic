@@ -257,7 +257,7 @@ onMounted(async () => {
       <div>
         <h1 class="page-title">{{ t("documents.title") }}</h1>
         <p v-if="patient" class="page-subtitle">
-          {{ patient.nom }} {{ patient.prenom }} · {{ patient.telephone }} · {{ patient.code }}
+          {{ patient.nom }} {{ patient.prenom }} · <bdi dir="ltr">{{ patient.telephone }}</bdi> · {{ patient.code }}
         </p>
       </div>
       <div style="display:flex;gap:12px;align-items:center;">
@@ -276,7 +276,7 @@ onMounted(async () => {
               @click="pickPatient(p)"
             >
               <strong>{{ p.nom }} {{ p.prenom }}</strong>
-              <span class="small muted" style="margin-inline-start:8px;">{{ p.telephone }}</span>
+              <span class="small muted" style="margin-inline-start:8px;"><bdi dir="ltr">{{ p.telephone }}</bdi></span>
             </div>
           </div>
         </div>
@@ -292,12 +292,12 @@ onMounted(async () => {
     <div v-if="errorMsg" class="alert alert-error">{{ t(errorMsg) }}</div>
 
     <div v-if="!patient" class="card empty-state">
-      <span class="empty-icon">▤</span>
+      <AppIcon name="documents" size="32" class="empty-icon" />
       {{ t("common.search_placeholder") }}
     </div>
 
     <template v-else>
-      <!-- Preview / print: shared HKN letterhead for every document type -->
+      <!-- Preview / print: shared clinic letterhead for every document type -->
       <div v-if="current" class="card print-area" style="max-width:720px;">
         <div ref="sheetEl" class="ord-sheet" :class="{ 'ord-ispaged': isPaged }">
           <thead class="ord-runhead" aria-hidden="true">
@@ -318,10 +318,9 @@ onMounted(async () => {
               <td colspan="2" class="ord-hcell">
                 <div class="ord-header">
                   <div class="ord-brand">
-                    <img src="/ordonnance-mark.svg" alt="" class="ord-logo" aria-hidden="true">
-                    <div class="ord-brandtext">
-                      <span class="ord-brand-hkn">HKN</span>
-                      <span class="ord-brand-sub">Dental Care</span>
+                    <!-- The letterhead carries the clinic's own name (Paramètres), never a vendor or demo brand. -->
+                    <div v-if="settings?.clinic_name" class="ord-brandtext">
+                      <span class="ord-brand-name">{{ settings.clinic_name }}</span>
                     </div>
                   </div>
                   <div class="ord-doctor">
@@ -347,7 +346,6 @@ onMounted(async () => {
                     </svg>
                     <span>{{ settings.phone }}</span>
                   </div>
-                  <div v-if="settings?.clinic_name" class="ord-clinic-name">{{ settings.clinic_name }}</div>
                 </div>
               </td>
             </tr>
@@ -403,10 +401,6 @@ onMounted(async () => {
           </tbody>
 
           <div class="ord-content">
-            <div class="ord-watermark" aria-hidden="true">
-              <img src="/ordonnance-watermark.svg" alt="" class="ord-watermark-img">
-            </div>
-
             <template v-if="current.doc_type === 'ordonnance'">
               <template v-if="editing">
                 <div v-for="(_, idx) in editForm.lines" :key="idx" class="field" style="margin-bottom:6px;">
@@ -488,7 +482,7 @@ onMounted(async () => {
           <div v-for="i in 4" :key="i" class="skeleton skeleton-row" />
         </div>
         <div v-else-if="!docs.length" class="empty-state">
-          <span class="empty-icon">▤</span>
+          <AppIcon name="documents" size="32" class="empty-icon" />
           {{ t("documents.aucun") }}
           <div class="empty-hint">{{ t("documents.nouveau") }}</div>
         </div>
@@ -559,14 +553,14 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* ---- HKN Dental Care document sheet ------------------------------------ */
+/* ---- Clinic letterhead document sheet ------------------------------------ */
 .ord-sheet {
   position: relative;
   display: flex;
   flex-direction: column;
   min-height: 620px;
   padding: 26px 30px;
-  color: #0040dc;
+  color: #292B3A;
   background: #fff;
   font-family: inherit;
 }
@@ -588,7 +582,7 @@ onMounted(async () => {
   width: 64px;
   height: 56px;
   display: block;
-  color: #0040dc;
+  color: #292B3A;
 }
 
 .ord-brandtext {
@@ -597,11 +591,13 @@ onMounted(async () => {
   line-height: 1.05;
   font-weight: 800;
   letter-spacing: 0.4px;
-  color: #0040dc;
+  color: #292B3A;
 }
 
-.ord-brand-hkn {
+.ord-brand-name {
   font-size: 18px;
+  max-width: 320px;
+  overflow-wrap: anywhere;
 }
 
 .ord-brand-sub {
@@ -656,7 +652,7 @@ onMounted(async () => {
 
 .ord-rule {
   border: none;
-  border-top: 1px solid #0040dc;
+  border-top: 1px solid #292B3A;
   margin: 14px 0 20px;
 }
 
@@ -670,13 +666,13 @@ onMounted(async () => {
 
 .ord-line-label {
   font-size: 13.5px;
-  color: #0040dc;
+  color: #292B3A;
 }
 
 .ord-code {
   margin-inline-start: 10px;
   font-size: 11.5px;
-  color: #0040dc;
+  color: #292B3A;
   opacity: 0.7;
 }
 
@@ -687,10 +683,10 @@ onMounted(async () => {
   justify-content: center;
   width: 24px;
   height: 20px;
-  border: 0.7px solid #0040dc;
+  border: 0.7px solid #292B3A;
   border-radius: 2px;
   font-size: 11px;
-  color: #0040dc;
+  color: #292B3A;
   background: transparent;
 }
 
@@ -700,7 +696,7 @@ onMounted(async () => {
 
 .ord-sexbtn-on,
 .ord-sexbox-on {
-  background: #0040dc;
+  background: #292B3A;
   color: #fff;
 }
 
@@ -757,7 +753,7 @@ onMounted(async () => {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.2px;
-  color: #0040dc;
+  color: #292B3A;
 }
 
 .ord-text {
@@ -768,7 +764,7 @@ onMounted(async () => {
 .ord-duration {
   margin-top: 12px;
   font-size: 12.5px;
-  color: #0040dc;
+  color: #292B3A;
 }
 
 .ord-footer-note {
@@ -802,7 +798,7 @@ onMounted(async () => {
 .ord-signrule {
   width: 80px;
   border: none;
-  border-top: 0.7px solid #0040dc;
+  border-top: 0.7px solid #292B3A;
   margin: 0 0 6px;
 }
 
@@ -813,7 +809,7 @@ onMounted(async () => {
 .ord-caption {
   font-size: 12px;
   letter-spacing: 0.3px;
-  color: #0040dc;
+  color: #292B3A;
 }
 
 /* ---- Continued-page running head (print only) ---------------------------- */
@@ -839,7 +835,7 @@ onMounted(async () => {
   gap: 12px;
   font-size: 11px;
   letter-spacing: 0.3px;
-  color: #0040dc;
+  color: #292B3A;
 }
 
 .ord-rh-end {
@@ -875,7 +871,7 @@ onMounted(async () => {
 
   .ord-sheet.ord-ispaged .ord-rh-cell {
     padding-bottom: 5px;
-    border-bottom: 0.7px solid rgba(0, 64, 220, 0.45);
+    border-bottom: 0.7px solid rgba(59, 30, 255, 0.45);
     vertical-align: bottom;
   }
 

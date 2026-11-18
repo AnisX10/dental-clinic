@@ -1,5 +1,5 @@
 @echo off
-rem Create an "HKN Dentaire" shortcut on the current user's Windows Desktop
+rem Create an "Dentilo" shortcut on the current user's Windows Desktop
 rem that starts the service and opens the application in a clean, borderless app-window mode.
 setlocal enabledelayedexpansion
 
@@ -7,7 +7,7 @@ cd /d "%~dp0.."
 set "ROOT_DIR=%cd%"
 set "VBS_SCRIPT=%ROOT_DIR%\scripts\start_silent.vbs"
 
-echo [clinic] Creating "HKN Dentaire" shortcut on Desktop...
+echo [clinic] Creating "Dentilo" shortcut on Desktop...
 
 if not exist "%VBS_SCRIPT%" (
     echo [clinic] ERROR: Cannot find "%VBS_SCRIPT%".
@@ -21,11 +21,11 @@ echo Dim ws, fso, desktop, sc, rootDir, vbsScript
 echo Set ws = CreateObject("WScript.Shell"^)
 echo Set fso = CreateObject("Scripting.FileSystemObject"^)
 echo desktop = ws.SpecialFolders("Desktop"^)
-echo Set sc = ws.CreateShortcut(fso.BuildPath(desktop, "HKN Dentaire.lnk"^)^)
+echo Set sc = ws.CreateShortcut(fso.BuildPath(desktop, "Dentilo.lnk"^)^)
 echo sc.TargetPath = ws.ExpandEnvironmentStrings("%%SystemRoot%%\System32\wscript.exe"^)
 echo sc.Arguments = """" ^& "%VBS_SCRIPT%" ^& """ /app"
 echo sc.WorkingDirectory = "%ROOT_DIR%"
-echo sc.Description = "HKN Dentaire - Application de gestion de cabinet dentaire"
+echo sc.Description = "Dentilo - Application de gestion de cabinet dentaire"
 echo Dim browser, p, candidates(11^)
 echo On Error Resume Next
 echo candidates(0^) = ws.RegRead("HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe\"^)
@@ -59,7 +59,7 @@ set "ERR=%ERRORLEVEL%"
 if exist "%SHORTCUT_VBS%" del "%SHORTCUT_VBS%"
 
 if %ERR% equ 0 (
-    echo [clinic] Setup complete. Double-click the "HKN Dentaire" shortcut on your Desktop to use the app.
+    echo [clinic] Setup complete. Double-click the "Dentilo" shortcut on your Desktop to use the app.
 ) else (
     echo [clinic] Failed to create desktop shortcut.
     exit /b %ERR%

@@ -371,7 +371,7 @@ async function deleteAct(a: Act) {
         <div v-for="i in 5" :key="i" class="skeleton skeleton-line" :class="i % 2 ? 'w-60' : 'w-40'" />
       </div>
       <div v-else-if="!registries.length" class="card empty-state">
-        <span class="empty-icon">◈</span>
+        <AppIcon name="dsp" size="32" class="empty-icon" />
         {{ t("dsp.aucun") }}
         <div class="empty-hint">{{ t("dsp.nouveau") }}</div>
       </div>
@@ -390,7 +390,7 @@ async function deleteAct(a: Act) {
             <tr v-for="r in registries" :key="r.id" class="row-link" @click="openRegistry(r.id)">
               <td>
                 <strong>{{ r.patient.nom }} {{ r.patient.prenom }}</strong>
-                <div class="small muted">{{ r.patient.telephone }}</div>
+                <div class="small muted"><bdi dir="ltr">{{ r.patient.telephone }}</bdi></div>
               </td>
               <td><span class="badge">{{ r.caisse }}</span></td>
               <td class="small muted" style="font-variant-numeric:tabular-nums;">{{ dates.fmtDate(r.first_act_date) }}</td>
@@ -425,7 +425,7 @@ async function deleteAct(a: Act) {
               @click="pickedPatient = p; patientResults = []; patientQuery = ''"
             >
               <strong>{{ p.nom }} {{ p.prenom }}</strong>
-              <span class="small muted" style="margin-inline-start:8px;">{{ p.telephone }}</span>
+              <span class="small muted" style="margin-inline-start:8px;"><bdi dir="ltr">{{ p.telephone }}</bdi></span>
             </div>
           </div>
         </div>
@@ -433,7 +433,7 @@ async function deleteAct(a: Act) {
       <template v-else>
         <p class="small" style="margin-bottom:12px;">
           <strong>{{ pickedPatient.nom }} {{ pickedPatient.prenom }}</strong>
-          <span class="muted" style="margin-inline-start:8px;">{{ pickedPatient.telephone }}</span>
+          <span class="muted" style="margin-inline-start:8px;"><bdi dir="ltr">{{ pickedPatient.telephone }}</bdi></span>
           <button class="btn btn-text btn-sm" style="margin-inline-start:8px;" @click="pickedPatient = null">
             {{ t("common.back") }}
           </button>

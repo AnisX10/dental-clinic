@@ -44,10 +44,10 @@ async function onFile(e: Event) {
   <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;">
     <div class="card" style="width:100%;max-width:420px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-        <img src="~/assets/logo.svg" alt="HKN" style="height:44px;width:auto;">
+        <img src="~/assets/logo.svg" alt="Dentilo" style="height:44px;width:auto;">
         <div>
           <h1 style="font-size:20px;font-weight:650;">{{ t("license.locked_title") }}</h1>
-          <p class="muted small">{{ t("common.app_name") }}</p>
+          <p class="muted small">{{ t("common.app_name") }} {{ t("common.app_byline") }}</p>
         </div>
       </div>
 

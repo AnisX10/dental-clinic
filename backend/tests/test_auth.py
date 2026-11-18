@@ -72,3 +72,14 @@ def test_protected_routes_require_auth(client):
     for method, path in paths:
         resp = getattr(client, method)(path)
         assert resp.status_code == 401, f"{method} {path} should require auth"
+
+
+def test_session_endpoint_is_200_when_logged_out(client):
+    resp = client.get("/api/auth/session")
+    assert resp.status_code == 200
+    assert resp.json() == {"user": None}
+
+
+def test_session_endpoint_returns_user(owner_client):
+    body = owner_client.get("/api/auth/session").json()
+    assert body["user"]["username"] == "owner"

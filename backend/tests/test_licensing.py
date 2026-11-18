@@ -122,3 +122,22 @@ def test_license_survives_files_on_disk(client, real_license):
     manager = srv.LicenseManager(srv.license_file(), srv.installation_getter)
     state = manager.load()
     assert state.active
+
+
+@pytest.mark.parametrize("wildcard", ["*", "ALL", "PERPETUAL", ""])
+def test_wildcard_installation_is_rejected(client, real_license, wildcard):
+    """A correctly signed licence with a wildcard installation must NOT unlock:
+    otherwise one leaked file unlocks every copy of the software."""
+    resp = client.post("/api/license/install", json={"content": real_license(installation=wildcard)})
+    assert resp.status_code == 400
+    status = client.get("/api/license/status").json()
+    assert status["active"] is False
+    assert status["reason"] == "installation_mismatch"
+
+
+def test_launcher_ships_no_universal_license():
+    """The launcher must never auto-provision a licence."""
+    from app import launcher
+
+    assert not hasattr(launcher, "DEFAULT_PERPETUAL_LICENSE")
+    assert not hasattr(launcher, "ensure_perpetual_license")

@@ -32,7 +32,9 @@ export function useDates() {
 
   function weekdayLong(isoDate: string): string {
     const d = new Date(`${isoDate}T12:00:00Z`)
-    return d.toLocaleDateString("fr-DZ", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    // Follows the UI language (Arabic dates on the Arabic interface).
+    const locale = useI18n().lang.value === "ar" ? "ar-DZ" : "fr-DZ"
+    return d.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })
   }
 
   return { fmtDate, fmtDateTime, fmtTime, todayIso, weekdayLong }

@@ -207,9 +207,9 @@ function statusClass(a: Appt): string {
           <AppIcon name="calendar" size="20" />
         </div>
         <div class="kpi-info">
-          <span class="kpi-label">Rendez-vous</span>
+          <span class="kpi-label">{{ t("today.kpi_rdv") }}</span>
           <span class="kpi-val">{{ stats.total }}</span>
-          <span class="kpi-sub">{{ stats.termines }} terminé(s)</span>
+          <span class="kpi-sub">{{ t("today.kpi_termines", { n: stats.termines }) }}</span>
         </div>
       </div>
 
@@ -218,9 +218,9 @@ function statusClass(a: Appt): string {
           <AppIcon name="tooth" size="20" />
         </div>
         <div class="kpi-info">
-          <span class="kpi-label">Au fauteuil</span>
+          <span class="kpi-label">{{ t("today.kpi_fauteuil") }}</span>
           <span class="kpi-val">{{ stats.enCours }}</span>
-          <span class="kpi-sub">En cours de soin</span>
+          <span class="kpi-sub">{{ t("today.kpi_fauteuil_sub") }}</span>
         </div>
       </div>
 
@@ -229,9 +229,9 @@ function statusClass(a: Appt): string {
           <AppIcon name="clock" size="20" />
         </div>
         <div class="kpi-info">
-          <span class="kpi-label">Salle d'attente</span>
+          <span class="kpi-label">{{ t("today.kpi_attente") }}</span>
           <span class="kpi-val">{{ stats.enAttente }}</span>
-          <span class="kpi-sub">Patient(s) arrivés</span>
+          <span class="kpi-sub">{{ t("today.kpi_attente_sub") }}</span>
         </div>
       </div>
 
@@ -242,7 +242,7 @@ function statusClass(a: Appt): string {
         <div class="kpi-info">
           <span class="kpi-label">{{ t("today.recettes_du_jour") }}</span>
           <span class="kpi-val">{{ data ? money.fmt(data.summary.recettes_du_jour) : "0 DA" }}</span>
-          <span class="kpi-sub">{{ data?.summary.nombre_paiements ?? 0 }} encaissement(s)</span>
+          <span class="kpi-sub">{{ t("today.kpi_encaissements", { n: data?.summary.nombre_paiements ?? 0 }) }}</span>
         </div>
       </div>
     </div>
@@ -252,8 +252,8 @@ function statusClass(a: Appt): string {
       <!-- Appointments Main Card -->
       <div class="card appointments-card" style="padding:0;">
         <div class="card-header-bar">
-          <span class="card-header-title">Séances et rendez-vous du jour</span>
-          <span class="badge badge-a_venir">{{ data?.appointments?.length ?? 0 }} patients</span>
+          <span class="card-header-title">{{ t("today.seances_du_jour") }}</span>
+          <span class="badge badge-a_venir">{{ t("today.n_patients", { n: data?.appointments?.length ?? 0 }) }}</span>
         </div>
 
         <div v-if="loading" style="padding:16px;" aria-hidden="true">
@@ -278,7 +278,7 @@ function statusClass(a: Appt): string {
                   </span>
                 </div>
               </td>
-              <td>
+              <td class="appt-patient-cell">
                 <div class="patient-cell-wrap">
                   <div class="patient-mini-avatar">
                     {{ ((a.patient.prenom?.[0] || '') + (a.patient.nom?.[0] || '')).toUpperCase() }}
@@ -287,17 +287,16 @@ function statusClass(a: Appt): string {
                     <NuxtLink :to="`/patients/${a.patient.id}`" class="patient-cell-name">
                       {{ a.patient.nom }} {{ a.patient.prenom }}
                     </NuxtLink>
-                    <div class="small muted">{{ a.patient.telephone }} <span v-if="a.motif">· {{ a.motif }}</span></div>
+                    <div class="small muted"><bdi dir="ltr">{{ a.patient.telephone }}</bdi> <span v-if="a.motif">· {{ a.motif }}</span></div>
                   </div>
                 </div>
               </td>
               <td style="width:120px;">
                 <span :class="statusClass(a)">{{ t(statusKey(a)) }}</span>
               </td>
-              <td
-                v-if="!a.cancelled && !a.absent && a.status !== 'termine'"
-                class="appt-actions-cell"
-              >
+              <!-- Every row keeps the same cells so columns line up. -->
+              <td class="appt-actions-cell">
+                <div v-if="!a.cancelled && !a.absent && a.status !== 'termine'" class="appt-actions">
                 <button
                   v-for="n in NEXT[a.status] ?? []"
                   :key="n.to"
@@ -307,13 +306,11 @@ function statusClass(a: Appt): string {
                 >
                   {{ t(n.key) }}
                 </button>
+                </div>
               </td>
-              <td
-                v-if="!a.cancelled && !a.absent"
-                style="width:1%;white-space:nowrap;"
-              >
+              <td style="width:1%;white-space:nowrap;">
                 <button
-                  v-if="a.status === 'a_venir'"
+                  v-if="a.status === 'a_venir' && !a.cancelled && !a.absent"
                   class="btn btn-text btn-sm"
                   :disabled="busyId === a.id"
                   :title="t('action.cancel_rdv')"
@@ -361,7 +358,7 @@ function statusClass(a: Appt): string {
               </div>
               <div class="alert-text-box">
                 <span class="alert-main-text">{{ lowItems.length }} {{ t("today.stock_articles_bas") }}</span>
-                <span class="alert-sub-warn">Niveaux critiques atteints</span>
+                <span class="alert-sub-warn">{{ t("today.stock_critique") }}</span>
               </div>
             </NuxtLink>
           </template>
@@ -372,7 +369,7 @@ function statusClass(a: Appt): string {
             </div>
             <div class="alert-text-box">
               <span class="alert-main-text danger-text">{{ t("today.backup_overdue") }}</span>
-              <span class="alert-sub-warn">Vérifiez vos sauvegardes</span>
+              <span class="alert-sub-warn">{{ t("today.backup_check") }}</span>
             </div>
           </NuxtLink>
         </div>
@@ -390,7 +387,7 @@ function statusClass(a: Appt): string {
           >
             <div class="relance-patient-name">{{ p.nom }} {{ p.prenom }}</div>
             <div class="relance-meta">
-              {{ p.days_since_visit }} {{ t("today.relance_jours") }} · {{ p.telephone }}
+              {{ p.days_since_visit }} {{ t("today.relance_jours") }} · <bdi dir="ltr">{{ p.telephone }}</bdi>
             </div>
           </NuxtLink>
         </div>
@@ -446,7 +443,7 @@ function statusClass(a: Appt): string {
   flex-shrink: 0;
 }
 
-.kpi-blue { background: #eef2ff; color: #0040dc; }
+.kpi-blue { background: var(--color-primary-soft); color: var(--color-primary); }
 .kpi-amber { background: #fef3c7; color: #b45309; }
 .kpi-indigo { background: #e0e7ff; color: #4338ca; }
 .kpi-emerald { background: #ecfdf5; color: #047857; }
@@ -468,7 +465,7 @@ function statusClass(a: Appt): string {
 .kpi-val {
   font-size: 20px;
   font-weight: 700;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
 }
@@ -490,7 +487,7 @@ function statusClass(a: Appt): string {
 .card-header-title {
   font-weight: 650;
   font-size: 14px;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .appt-time-cell {
@@ -503,7 +500,7 @@ function statusClass(a: Appt): string {
   gap: 6px;
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   font-variant-numeric: tabular-nums;
   background: var(--color-canvas, #f8fafc);
   padding: 3px 8px;
@@ -521,8 +518,8 @@ function statusClass(a: Appt): string {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--color-primary-soft, #eef2ff);
-  color: var(--color-primary, #0040dc);
+  background: var(--color-primary-soft, #D7E8FA);
+  color: var(--color-primary, #3B1EFF);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -534,21 +531,29 @@ function statusClass(a: Appt): string {
 .patient-cell-name {
   font-weight: 600;
   font-size: 14px;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   text-decoration: none;
   transition: color 0.12s ease;
 }
 
 .patient-cell-name:hover {
-  color: var(--color-primary, #0040dc);
+  color: var(--color-primary, #3B1EFF);
 }
 
 .appt-actions-cell {
   width: 1%;
   white-space: nowrap;
+  padding-inline-end: 8px;
+}
+
+.appt-actions {
   display: flex;
   gap: 6px;
-  padding-inline-end: 16px;
+  justify-content: flex-end;
+}
+
+.appt-patient-cell {
+  min-width: 220px;
 }
 
 /* Side Column Cards */
@@ -565,7 +570,7 @@ function statusClass(a: Appt): string {
   font-weight: 650;
   font-size: 14px;
   margin-bottom: 12px;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .alert-title-icon {
@@ -591,8 +596,8 @@ function statusClass(a: Appt): string {
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  background: #eef2ff;
-  color: #0040dc;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -610,7 +615,7 @@ function statusClass(a: Appt): string {
 .alert-main-text {
   font-size: 13px;
   font-weight: 550;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .alert-sub-warn {
@@ -638,7 +643,7 @@ function statusClass(a: Appt): string {
 .relance-patient-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .relance-meta {

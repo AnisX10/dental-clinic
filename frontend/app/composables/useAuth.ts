@@ -5,6 +5,7 @@ export interface ClinicUser {
   full_name: string
   role: string
   is_owner: boolean
+  must_change_password: boolean
 }
 
 export function useAuth() {
@@ -15,7 +16,7 @@ export function useAuth() {
     if (loaded.value && !force) return user.value
     const api = useApi()
     try {
-      const data = await api.get<{ user: ClinicUser }>("/auth/me")
+      const data = await api.get<{ user: ClinicUser | null }>("/auth/session")
       user.value = data.user
     }
     catch {
@@ -35,6 +36,16 @@ export function useAuth() {
     return data.user
   }
 
+  async function changePassword(currentPassword: string, newPassword: string) {
+    const api = useApi()
+    const data = await api.post<{ user: ClinicUser }>("/auth/change-password", {
+      current_password: currentPassword,
+      new_password: newPassword,
+    })
+    user.value = data.user
+    return data.user
+  }
+
   async function logout() {
     const api = useApi()
     try {
@@ -47,5 +58,5 @@ export function useAuth() {
     await navigateTo("/login")
   }
 
-  return { user, loaded, fetchMe, login, logout }
+  return { user, loaded, fetchMe, login, logout, changePassword }
 }

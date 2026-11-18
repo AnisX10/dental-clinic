@@ -43,7 +43,7 @@ def list_devis(
     patient_id: int | None = None,
     status: str | None = None,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     rows = service.list_devis(db, patient_id=patient_id, status=status)
     from sqlalchemy import select
@@ -66,7 +66,7 @@ def create_devis(
     payload: DevisCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     row = service.create_devis(
         db,
@@ -93,7 +93,7 @@ def create_devis(
 def get_devis(
     devis_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     from app.core.services import get_settings_row
     from app.documents.service import clinic_template_data
@@ -112,7 +112,7 @@ def update_devis(
     payload: DevisUpdate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     row = service.get_devis_or_404(db, devis_id)
     row = service.update_devis(
@@ -141,7 +141,7 @@ def change_status(
     payload: StatusChange,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     row = service.get_devis_or_404(db, devis_id)
     row = service.set_status(db, row, new_status=payload.status)

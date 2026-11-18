@@ -55,7 +55,7 @@ def list_items(
     include_inactive: bool = True,
     low_stock: bool = False,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     rows = service.list_items(db, include_inactive=include_inactive, low_stock=low_stock)
     low_count = sum(1 for r in service.list_items(db, include_inactive=True) if service.is_low(r))
@@ -67,7 +67,7 @@ def create_item(
     payload: StockItemCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     item = service.create_item(
         db,
@@ -94,7 +94,7 @@ def update_item(
     payload: StockItemUpdate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     item = service.get_item_or_404(db, item_id)
     service.update_item(
@@ -116,7 +116,7 @@ def adjust_item(
     payload: StockAdjust,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     movement = service.adjust_stock(
         db, item_id=item_id, delta=payload.delta, reason=payload.reason, note=payload.note,
@@ -138,7 +138,7 @@ def correct_item(
     payload: StockCorrect,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     movement = service.set_absolute_quantity(
         db, item_id=item_id, quantity=payload.quantity, note=payload.note, actor_id=user.id
@@ -157,7 +157,7 @@ def item_movements(
     item_id: int,
     limit: int = 100,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     return {"movements": service.item_movements(db, item_id, limit=limit)}
 
@@ -165,7 +165,7 @@ def item_movements(
 @router.get("/valuation")
 def valuation(
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     return service.valuation(db)
 
@@ -174,7 +174,7 @@ def valuation(
 def list_links(
     catalog_item_id: int | None = None,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     return {"links": service.list_links(db, catalog_item_id=catalog_item_id)}
 
@@ -184,7 +184,7 @@ def create_link(
     payload: LinkCreate,
     request: Request,
     user: User = Depends(require_owner),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     link = service.create_link(
         db, catalog_item_id=payload.catalog_item_id, stock_item_id=payload.stock_item_id,
@@ -214,7 +214,7 @@ def delete_link(
     link_id: int,
     request: Request,
     user: User = Depends(require_owner),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     service.delete_link(db, link_id)
     log_action(

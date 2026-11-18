@@ -1,9 +1,9 @@
 @echo off
 rem =======================================================================
-rem  HKN Dentaire - Automated 1-Click Installer for Windows
+rem  Dentilo - Automated 1-Click Installer for Windows
 rem =======================================================================
 setlocal enabledelayedexpansion
-title HKN Dentaire - Assistant d'installation
+title Dentilo - Assistant d'installation
 
 rem Anchor to project root whether run from root or from scripts folder
 set "SCRIPT_DIR=%~dp0"
@@ -11,11 +11,12 @@ if exist "%SCRIPT_DIR%backend" (
     set "ROOT_DIR=%SCRIPT_DIR%"
 ) else (
     set "ROOT_DIR=%SCRIPT_DIR%..\"
+)
 cd /d "%ROOT_DIR%"
 set "ROOT_DIR=%cd%"
 
 echo =======================================================================
-echo          HKN Dentaire - Installation automatique du cabinet
+echo          Dentilo - Installation automatique du cabinet
 echo =======================================================================
 echo.
 echo Ce programme va configurer l'application sur cet ordinateur.
@@ -188,16 +189,29 @@ if "%DOC_NAME%"=="" set "DOC_NAME=Dr. Dentiste"
 set /p DOC_USER="Identifiant de connexion (ex: dentiste) [dentiste] : "
 if "%DOC_USER%"=="" set "DOC_USER=dentiste"
 
-set /p DOC_PASS="Mot de passe (au moins 10 caracteres) [Cabinet2026!] : "
-if "%DOC_PASS%"=="" set "DOC_PASS=Cabinet2026!"
-
 echo.
+echo Choisissez maintenant le mot de passe du compte (saisie masquee).
+echo Il doit contenir au moins 10 caracteres, avec lettres, chiffres et un symbole.
+echo.
+
 echo Initialisation de la base de donnees et du catalogue dentaire...
-"!TARGET_PY!" "%ROOT_DIR%\backend\app\cli.py" init-prod --username "%DOC_USER%" --password "%DOC_PASS%" --full-name "%DOC_NAME%" --force
-if errorlevel 1 (
+rem The password is typed directly into the Python prompt (hidden, confirmed,
+rem policy-checked): it never transits through a batch variable, is never
+rem defaulted and never echoed back.
+"!TARGET_PY!" "%ROOT_DIR%\backend\app\cli.py" init-prod --username "%DOC_USER%" --full-name "%DOC_NAME%" --force --no-audit
+set "INIT_CODE=!ERRORLEVEL!"
+if "!INIT_CODE!"=="3" (
+    echo  - Installation existante detectee : vos donnees sont conservees.
+) else if not "!INIT_CODE!"=="0" (
     echo.
-    echo [NOTE] La base semble deja initialisee ou une erreur non-bloquante est survenue.
-    echo Les donnees existantes sont conservees.
+    echo =======================================================================
+    echo  [ERREUR] La base de donnees n'a pas pu etre preparee (code !INIT_CODE!^).
+    echo =======================================================================
+    echo Les details sont affiches ci-dessus. Aucun raccourci n'a ete cree.
+    echo Envoyez une capture de cette fenetre a l'assistance Tasshil.
+    echo.
+    pause
+    exit /b 1
 )
 echo.
 
@@ -212,18 +226,18 @@ echo =======================================================================
 echo          Installation terminee avec succes !
 echo =======================================================================
 echo.
-echo L'application est prete a l'emploi avec sa licence permanente integree.
+echo Votre identifiant de connexion : %DOC_USER%
+echo (le mot de passe est celui que vous venez de choisir)
 echo.
-echo Vos identifiants de connexion :
-echo   - Identifiant : %DOC_USER%
-echo   - Mot de passe : %DOC_PASS%
+echo Au premier lancement, l'ecran "Licence" affiche l'identifiant d'installation
+echo de ce poste : transmettez-le a Tasshil pour recevoir votre fichier de licence.
 echo.
 echo Pour lancer l'application a tout moment :
-echo   - Double-cliquez sur le raccourci "HKN Dentaire" sur votre Bureau.
+echo   - Double-cliquez sur le raccourci "Dentilo" sur votre Bureau.
 echo   - Ou double-cliquez sur "start.bat" dans ce dossier.
 echo.
 
-set /p LAUNCH_NOW="Souhaitez-vous lancer HKN Dentaire maintenant ? (O/N) [O] : "
+set /p LAUNCH_NOW="Souhaitez-vous lancer Dentilo maintenant ? (O/N) [O] : "
 if "%LAUNCH_NOW%"=="" set "LAUNCH_NOW=O"
 if /i "%LAUNCH_NOW%"=="O" (
     echo Demarrage en cours...

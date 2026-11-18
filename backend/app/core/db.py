@@ -134,7 +134,13 @@ def dispose_engine() -> None:
 
 
 def get_db():
-    """FastAPI dependency: one transactional scope per request."""
+    """FastAPI dependency: one transactional scope per request.
+
+    Always declare it as ``Depends(get_db, scope="function")``: with the default
+    "request" scope FastAPI commits *after* the response is sent, so a client that
+    calls the API again right away (log in, then load the dashboard) can miss the
+    write it just made and get a spurious 401 or stale data.
+    """
     db = get_session_factory()()
     try:
         yield db

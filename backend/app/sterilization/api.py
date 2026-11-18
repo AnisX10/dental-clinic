@@ -33,7 +33,7 @@ class CycleFinish(BaseModel):
 def list_cycles(
     status: str | None = None,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     rows = service.list_cycles(db, status=status)
     return {"cycles": [service.serialize_cycle(c, include_items=False) for c in rows]}
@@ -44,7 +44,7 @@ def create_cycle(
     payload: CycleCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     row = service.create_cycle(
         db,
@@ -70,7 +70,7 @@ def create_cycle(
 def get_cycle(
     cycle_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     row = service.get_cycle_or_404(db, cycle_id)
     return {"cycle": service.serialize_cycle(row)}
@@ -82,7 +82,7 @@ def finish_cycle(
     payload: CycleFinish,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     row = service.get_cycle_or_404(db, cycle_id)
     row = service.finish_cycle(db, row, result=payload.result)

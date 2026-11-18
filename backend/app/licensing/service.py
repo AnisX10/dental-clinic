@@ -121,7 +121,10 @@ class LicenseManager:
         if state.active:
             payload = state.payload or {}
             install_id = self._ensure_installation()
-            if payload.get("installation") in ("*", "ALL", "PERPETUAL", install_id):
+            # A licence is valid for exactly one installation. Wildcard values
+            # ("*", "ALL", ...) are deliberately NOT honoured: a signed wildcard
+            # licence would unlock every copy of the software.
+            if install_id and payload.get("installation") == install_id:
                 state = LicenseState(active=True, reason="ok", payload=state.payload, installation_id=install_id)
             else:
                 state = LicenseState(

@@ -1,31 +1,30 @@
 /* ------------------------------------------------------------------ *
  * Design tokens — Quiet Clinical Minimalism (DESIGN.md §3, §4, §5, §14)
+ * Palette: Dentilo by Tasshil — Ink #292B3A, Violet #3B1EFF, Mint #5DF9C0, Ice #D7E8FA
  * ------------------------------------------------------------------ */
 :root {
   --color-bg: #F8FAFC;
   --color-canvas: #F8FAFC;
   --color-surface: #FFFFFF;
   --color-surface-muted: #F1F5F9;
-  --color-text: #0F172A;
+  --color-text: #292B3A;        /* Dentilo Ink */
   --color-text-muted: #475569;
   --color-text-subtle: #94A3B8;
   --color-border: #E2E8F0;
   --color-border-subtle: #F1F5F9;
-  --color-primary: #0040DC;
-  --color-primary-dark: #0033B0;
-  --color-primary-soft: #EEF2FF;
-  --color-primary-soft-text: #1E40AF;
-  --color-accent: #0B64D8;
+  --color-primary: #3B1EFF;     /* Dentilo Violet */
+  --color-primary-dark: #2A10D6;
+  --color-primary-soft: #D7E8FA; /* Dentilo Ice */
+  --color-primary-soft-text: #2A10D6;
+  --color-accent: #3B1EFF;
+  --color-mint: #5DF9C0;        /* Dentilo Mint: decorative accents only (too light for text) */
   --color-success: #10B981;
   --color-warning: #F59E0B;
   --color-danger: #EF4444;
 
-  /* HKN brand fonts (see branding/fonts/README.md): commercial, loaded from
-     local files only when licensed .woff2 files are dropped into
-     frontend/public/fonts/ — the browser silently falls back to Inter /
-     Noto Sans Arabic until then (offline-safe either way). */
-  --font-sans: "PP Neue Montreal", Inter, "Janah LT", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
-  --font-arabic: "Janah LT", "Noto Sans Arabic", Tahoma, Arial, sans-serif;
+  /* Inter + Noto Sans Arabic, bundled offline via @fontsource (nuxt.config.ts). */
+  --font-sans: Inter, "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  --font-arabic: "Noto Sans Arabic", Tahoma, Arial, sans-serif;
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -50,66 +49,9 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-/* --- HKN brand font faces (self-hosted, licensed files only) -------------- */
-/* Latin — PP Neue Montreal (Pangram Pangram), App license required. */
-@font-face {
-  font-family: "PP Neue Montreal";
-  src: url("/fonts/NeueMontreal-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "PP Neue Montreal";
-  src: url("/fonts/NeueMontreal-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "PP Neue Montreal";
-  src: url("/fonts/NeueMontreal-SemiBold.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "PP Neue Montreal";
-  src: url("/fonts/NeueMontreal-Bold.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Arabic — Janah LT (Linotype/Monotype), embedding license required. */
-@font-face {
-  font-family: "Janah LT";
-  src: url("/fonts/JanahLT-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Janah LT";
-  src: url("/fonts/JanahLT-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Janah LT";
-  src: url("/fonts/JanahLT-SemiBold.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Janah LT";
-  src: url("/fonts/JanahLT-Bold.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
+/* Fonts: Inter + Noto Sans Arabic are bundled via @fontsource (nuxt.config.ts).
+   The former commercial brand faces were never shipped and produced a 404 per
+   weight on every page load, so they are no longer declared. */
 
 html, body {
   margin: 0;
@@ -259,6 +201,10 @@ a { color: inherit; text-decoration: none; }
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 .card + .card { margin-top: var(--space-4); }
+/* Stacked cards get a gap, but side-by-side cards in a grid/flex row must not:
+   the margin pushed every second card 16px lower than its neighbour. */
+:is(.kpi-grid, .day-grid, [style*="display: grid"], [style*="display:grid"],
+    [style*="display: flex"], [style*="display:flex"]) > .card + .card { margin-top: 0; }
 
 .btn {
   display: inline-flex;
@@ -285,11 +231,11 @@ a { color: inherit; text-decoration: none; }
 .btn-primary {
   background: var(--color-primary);
   color: #fff;
-  box-shadow: 0 1px 2px rgba(0, 64, 220, 0.2);
+  box-shadow: 0 1px 2px rgba(59, 30, 255, 0.2);
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--color-primary-dark);
-  box-shadow: 0 2px 4px rgba(0, 64, 220, 0.25);
+  box-shadow: 0 2px 4px rgba(59, 30, 255, 0.25);
 }
 
 .btn-secondary {
@@ -344,7 +290,7 @@ a { color: inherit; text-decoration: none; }
 .input:focus, .select:focus, .textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(0, 64, 220, 0.12);
+  box-shadow: 0 0 0 3px rgba(59, 30, 255, 0.12);
 }
 .input::placeholder, .textarea::placeholder { color: var(--color-text-subtle); }
 
@@ -368,6 +314,7 @@ a { color: inherit; text-decoration: none; }
 .table tbody tr.row-link:hover { background: var(--color-surface-muted); }
 
 .badge {
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -494,6 +441,7 @@ a { color: inherit; text-decoration: none; }
 .seg { display: inline-flex; border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden; background: var(--color-surface); }
 .seg-btn { border: 0; background: transparent; padding: 6px 12px; font: inherit; font-size: 13px; color: var(--color-text-muted); cursor: pointer; }
 .seg-btn.active { background: var(--color-primary); color: #fff; }
+.odonto-fit { width: 100%; }
 .odonto { display: inline-block; direction: ltr; padding: 4px 8px 12px; }
 .odonto-arch-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--color-text-muted); margin: 4px 0 6px; text-align: center; }
 .odonto-rows { position: relative; }
@@ -809,7 +757,7 @@ a.alert-row.sub:hover { color: var(--color-danger); }
 
 /* Empty states with icon + hint */
 .empty-state { text-align: center; padding: var(--space-6) var(--space-4); }
-.empty-state .empty-icon { font-size: 26px; opacity: 0.35; display: block; margin-bottom: 6px; }
+.empty-state .empty-icon { font-size: 26px; opacity: 0.35; display: block; margin: 0 auto 8px; color: var(--color-text-muted); }
 .empty-state .empty-hint { color: var(--color-text-muted); font-size: 12.5px; margin-top: 4px; }
 
 /* Delta colors for stock ledger */
@@ -897,3 +845,7 @@ a.alert-row.sub:hover { color: var(--color-danger); }
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Row actions inside tables: compact text buttons that sit side by side
+   instead of stacking one per line (stock rows were ~170px tall). */
+td .btn-text.btn-sm { height: 26px; padding: 0 6px; white-space: nowrap; }

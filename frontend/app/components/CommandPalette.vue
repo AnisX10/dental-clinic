@@ -136,7 +136,7 @@ defineExpose({ open, close })
             </div>
             <div class="cmd-item-info">
               <span class="cmd-item-name">{{ patient.prenom }} {{ patient.nom }}</span>
-              <span class="cmd-item-phone">{{ patient.telephone }} · {{ patient.code }}</span>
+              <span class="cmd-item-phone"><bdi dir="ltr">{{ patient.telephone }}</bdi> · {{ patient.code }}</span>
             </div>
             <AppIcon name="chevron-right" size="16" class="cmd-item-arrow" />
           </li>
@@ -197,7 +197,7 @@ defineExpose({ open, close })
   background: transparent;
   border: none;
   font-size: 15px;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   outline: none;
   font-family: inherit;
 }
@@ -237,15 +237,15 @@ defineExpose({ open, close })
 }
 
 .cmd-item.active {
-  background: color-mix(in srgb, var(--color-primary, #0040dc) 8%, white);
+  background: color-mix(in srgb, var(--color-primary, #3B1EFF) 8%, white);
 }
 
 .cmd-item-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--color-primary-soft, #eef2ff);
-  color: var(--color-primary, #0040dc);
+  background: var(--color-primary-soft, #D7E8FA);
+  color: var(--color-primary, #3B1EFF);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -264,7 +264,7 @@ defineExpose({ open, close })
 .cmd-item-name {
   font-weight: 550;
   font-size: 14px;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .cmd-item-phone {

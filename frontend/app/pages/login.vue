@@ -19,8 +19,8 @@ async function submit() {
   submitting.value = true
   errorKey.value = ""
   try {
-    await auth.login(username.value.trim(), password.value)
-    await navigateTo("/")
+    const user = await auth.login(username.value.trim(), password.value)
+    await navigateTo(user.must_change_password ? "/mot-de-passe" : "/")
   }
   catch (e: any) {
     errorKey.value = e?.messageKey ?? "errors.generic"
@@ -37,11 +37,14 @@ async function submit() {
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
         <img
           src="~/assets/logo.svg"
-          alt="HKN"
+          alt="Dentilo"
           style="height:44px;width:auto;"
         >
         <div>
-          <h1 style="font-size:20px;font-weight:650;">{{ t("common.app_name") }}</h1>
+          <h1 style="font-size:20px;font-weight:650;">
+            {{ t("common.app_name") }}
+            <span class="muted" style="font-size:13px;font-weight:500;">{{ t("common.app_byline") }}</span>
+          </h1>
           <p class="muted small">{{ t("auth.login_title") }}</p>
         </div>
       </div>

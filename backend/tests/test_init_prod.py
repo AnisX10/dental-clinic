@@ -80,7 +80,7 @@ def test_init_prod_creates_owner_and_audits(owner_client, users, capsys):
     )
     assert _init_prod(args) == 0
     out = capsys.readouterr().out
-    assert "Owner created: prodowner" in out
+    assert "Compte responsable cree : prodowner" in out
     assert "[OK] Frontend build present" in out
 
     db = get_session_factory()()
@@ -93,3 +93,40 @@ def test_init_prod_creates_owner_and_audits(owner_client, users, capsys):
         assert row.is_owner and row.role == "dentiste"
     finally:
         db.close()
+
+
+def test_init_prod_rerun_keeps_existing_account(owner_client, users, capsys, monkeypatch):
+    """Re-running the installer on an initialised database exits early with
+    code 3, before any password prompt, and leaves the account untouched."""
+    import argparse
+    import getpass
+
+    from app.cli import EXIT_ALREADY_INITIALIZED, _init_prod
+
+    def _no_prompt(*_a, **_k):
+        raise AssertionError("must not prompt for a password")
+
+    monkeypatch.setattr(getpass, "getpass", _no_prompt)
+    args = argparse.Namespace(
+        command="init-prod", username="owner", password="", full_name="X",
+        force=True, no_audit=True,
+    )
+    assert _init_prod(args) == EXIT_ALREADY_INITIALIZED
+    assert "existe deja" in capsys.readouterr().out
+    assert owner_client.post(
+        "/api/auth/login", json={"username": "owner", "password": "password-123"}
+    ).status_code == 200
+
+
+def test_init_prod_no_audit_skips_printout(client, capsys):
+    import argparse
+
+    from app.cli import _init_prod
+
+    args = argparse.Namespace(
+        command="init-prod", username="quietowner", password="Quiet#Pass-2026",
+        full_name="Q", force=False, no_audit=True,
+    )
+    assert _init_prod(args) == 0
+    out = capsys.readouterr().out
+    assert "Production audit" not in out and "TODO" not in out

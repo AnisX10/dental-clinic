@@ -13,10 +13,8 @@ defineProps<{ settings: SettingsLike | null | undefined }>()
   <div class="pl-letter">
     <div class="pl-header">
       <div class="pl-brand">
-        <img src="/ordonnance-mark.svg" alt="" class="pl-logo" aria-hidden="true">
-        <div class="pl-brandtext">
-          <span class="pl-brand-hkn">HKN</span>
-          <span class="pl-brand-sub">Dental Care</span>
+        <div v-if="settings?.clinic_name" class="pl-brandtext">
+          <span class="pl-brand-name">{{ settings.clinic_name }}</span>
         </div>
       </div>
       <div class="pl-doctor">
@@ -38,7 +36,6 @@ defineProps<{ settings: SettingsLike | null | undefined }>()
         </svg>
         <span>{{ settings.phone }}</span>
       </div>
-      <div v-if="settings?.clinic_name" class="pl-clinic-name">{{ settings.clinic_name }}</div>
     </div>
     <hr class="pl-rule">
   </div>
@@ -66,7 +63,7 @@ defineProps<{ settings: SettingsLike | null | undefined }>()
   width: 64px;
   height: 56px;
   display: block;
-  color: #0040dc;
+  color: #292B3A;
 }
 
 .pl-brandtext {
@@ -75,11 +72,13 @@ defineProps<{ settings: SettingsLike | null | undefined }>()
   line-height: 1.05;
   font-weight: 800;
   letter-spacing: 0.4px;
-  color: #0040dc;
+  color: #292B3A;
 }
 
-.pl-brand-hkn {
+.pl-brand-name {
   font-size: 18px;
+  max-width: 320px;
+  overflow-wrap: anywhere;
 }
 
 .pl-brand-sub {
@@ -134,7 +133,7 @@ defineProps<{ settings: SettingsLike | null | undefined }>()
 
 .pl-rule {
   border: none;
-  border-top: 1px solid #0040dc;
+  border-top: 1px solid #292B3A;
   margin: 14px 0 20px;
 }
 </style>

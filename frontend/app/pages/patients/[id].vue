@@ -534,7 +534,7 @@ async function saveRdv() {
             <AppIcon name="chevron-left" size="16" />
             <span>{{ t("common.back") }}</span>
           </NuxtLink>
-          <span class="patient-code-badge">Dossier #{{ patient.code }}</span>
+          <span class="patient-code-badge">{{ t("patients.dossier_code", { code: patient.code }) }}</span>
         </div>
 
         <div class="patient-hero-body">
@@ -554,11 +554,11 @@ async function saveRdv() {
             <div class="patient-chips-row">
               <a :href="'tel:' + patient.telephone" class="patient-chip patient-chip-link" :title="patient.telephone">
                 <AppIcon name="phone" size="13" />
-                <span>{{ patient.telephone }}</span>
+                <span><bdi dir="ltr">{{ patient.telephone }}</bdi></span>
               </a>
               <span v-if="patient.telephone2" class="patient-chip">
                 <AppIcon name="phone" size="13" />
-                <span>{{ patient.telephone2 }}</span>
+                <span><bdi dir="ltr">{{ patient.telephone2 }}</bdi></span>
               </span>
               <span v-if="patient.age_years !== null" class="patient-chip">
                 <AppIcon name="calendar" size="13" />
@@ -574,7 +574,7 @@ async function saveRdv() {
             <!-- Medical Alerts Warning Banner -->
             <div v-if="medicalAlerts.length" class="patient-medical-alert-chip">
               <AppIcon name="alert-triangle" size="14" class="alert-icon" />
-              <span class="alert-label">Alerte médicale :</span>
+              <span class="alert-label">{{ t("patients.alerte_medicale") }}</span>
               <span class="alert-content">{{ medicalAlerts.join(" · ") }}</span>
             </div>
           </div>
@@ -1199,7 +1199,7 @@ async function saveRdv() {
 }
 
 .hero-back-link:hover {
-  color: var(--color-primary, #0040dc);
+  color: var(--color-primary, #3B1EFF);
 }
 
 .patient-code-badge {
@@ -1223,15 +1223,15 @@ async function saveRdv() {
   width: 58px;
   height: 58px;
   border-radius: 16px;
-  background: var(--color-primary-soft, #eef2ff);
-  color: var(--color-primary, #0040dc);
+  background: var(--color-primary-soft, #D7E8FA);
+  color: var(--color-primary, #3B1EFF);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
   font-weight: 700;
   flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--color-primary, #0040dc) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary, #3B1EFF) 20%, transparent);
 }
 
 .patient-identity-box {
@@ -1251,7 +1251,7 @@ async function saveRdv() {
 .patient-full-name {
   font-size: 22px;
   font-weight: 700;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   letter-spacing: -0.01em;
   margin: 0;
 }
@@ -1277,14 +1277,14 @@ async function saveRdv() {
 
 .patient-chip-link {
   text-decoration: none;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   font-weight: 550;
   transition: all 0.12s ease;
 }
 
 .patient-chip-link:hover {
-  border-color: var(--color-primary, #0040dc);
-  color: var(--color-primary, #0040dc);
+  border-color: var(--color-primary, #3B1EFF);
+  color: var(--color-primary, #3B1EFF);
 }
 
 .patient-medical-alert-chip {
@@ -1334,7 +1334,7 @@ async function saveRdv() {
   font-size: 15px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
 }
 
 .stat-success {
@@ -1370,7 +1370,7 @@ async function saveRdv() {
 }
 
 .btn-encaissement {
-  background: var(--color-primary, #0040dc);
+  background: var(--color-primary, #3B1EFF);
 }
 
 /* Segmented Tabs */
@@ -1406,15 +1406,15 @@ async function saveRdv() {
 }
 
 .segmented-tab-btn:hover {
-  color: var(--color-text, #0f172a);
+  color: var(--color-text, #292B3A);
   background: var(--color-canvas, #f8fafc);
 }
 
 .segmented-tab-btn.active {
-  background: var(--color-primary-soft, #eef2ff);
-  color: var(--color-primary, #0040dc);
+  background: var(--color-primary-soft, #D7E8FA);
+  color: var(--color-primary, #3B1EFF);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 64, 220, 0.08);
+  box-shadow: 0 1px 2px rgba(59, 30, 255, 0.08);
 }
 
 /* Odontogram Split Layout */
@@ -1444,7 +1444,7 @@ async function saveRdv() {
 }
 
 .odonto-title-icon {
-  color: var(--color-primary, #0040dc);
+  color: var(--color-primary, #3B1EFF);
 }
 
 .odonto-side-pane {

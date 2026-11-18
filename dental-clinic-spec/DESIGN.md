@@ -60,12 +60,14 @@ Use a restrained palette with semantic roles rather than color variety.
 |---|---|---:|---|
 | Background | `--color-bg` | `#F7F8FA` | Main application canvas |
 | Surface | `--color-surface` | `#FFFFFF` | Panels, forms, tables |
-| Text primary | `--color-text` | `#17212B` | Main content |
+| Text primary | `--color-text` | `#292B3A` | Main content (Dentilo Ink) |
 | Text secondary | `--color-text-muted` | `#66717D` | Supporting labels |
 | Border | `--color-border` | `#E2E7EC` | Quiet separation |
-| Primary | `--color-primary` | `#0040DC` | Main actions, active navigation (HKN brand blue) |
-| Primary dark | `--color-primary-dark` | `#0033B0` | Hover/pressed states |
-| Accent | `--color-accent` | `#0B64D8` | Small positive/clinical accent |
+| Primary | `--color-primary` | `#3B1EFF` | Main actions, active navigation (Dentilo Violet) |
+| Primary dark | `--color-primary-dark` | `#2A10D6` | Hover/pressed states |
+| Primary soft | `--color-primary-soft` | `#D7E8FA` | Active nav / chip background (Dentilo Ice) |
+| Accent | `--color-accent` | `#3B1EFF` | Small positive/clinical accent |
+| Mint | `--color-mint` | `#5DF9C0` | Decorative brand accent only, never text (too light on white) |
 | Success | `--color-success` | `#2D7A5A` | Completed/success feedback |
 | Warning | `--color-warning` | `#9A6A18` | Caution / attention |
 | Danger | `--color-danger` | `#B34A4A` | Destructive/error states |
@@ -95,7 +97,7 @@ Reste         3 000 DA
 ### Primary type system
 Use a clean sans-serif with strong French and Arabic support.
 
-HKN brand fonts (commercial, see `branding/fonts/README.md`):
+Brand fonts (commercial, see `branding/fonts/README.md`):
 
 - Latin + documents: **PP Neue Montreal** (Pangram Pangram).
 - Arabic: **Janah LT** (Linotype, Nadine Chahine).

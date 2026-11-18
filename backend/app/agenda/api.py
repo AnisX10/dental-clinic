@@ -56,7 +56,7 @@ def _today_summary(db: OrmSession) -> dict:
 @router.get("/today")
 def get_today(
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     rows = service.list_day(db, today())
     return {
@@ -70,7 +70,7 @@ def get_today(
 def get_day(
     day: str,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     try:
         parsed = dt.date.fromisoformat(day)
@@ -84,7 +84,7 @@ def get_day(
 def get_appointment(
     appointment_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     appt = service.get_appointment_or_404(db, appointment_id)
     data = service.serialize_appointment(appt)
@@ -97,7 +97,7 @@ def create_appointment(
     payload: AppointmentCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     if not service.patient_exists(db, payload.patient_id):
         raise AppError("errors.patient_not_found", status_code=404, code="patient_not_found")
@@ -136,7 +136,7 @@ def update_appointment(
     payload: AppointmentUpdate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     appt = service.get_appointment_or_404(db, appointment_id)
     if appt.cancelled_at is not None:
@@ -185,7 +185,7 @@ def set_status(
     payload: StatusIn,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     appt = service.get_appointment_or_404(db, appointment_id)
     service.set_status(db, appt, payload.status, actor_id=user.id)
@@ -206,7 +206,7 @@ def mark_absent(
     appointment_id: int,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     appt = service.get_appointment_or_404(db, appointment_id)
     service.mark_absent(db, appt, actor_id=user.id)
@@ -227,7 +227,7 @@ def cancel_appointment(
     payload: ReasonIn,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     appt = service.get_appointment_or_404(db, appointment_id)
     service.cancel(db, appt, actor_id=user.id, reason=payload.reason)
@@ -246,7 +246,7 @@ def cancel_appointment(
 def patient_appointments(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     get_patient_or_404(db, patient_id)
     rows = list(
@@ -266,7 +266,7 @@ def patient_appointments(
 def patient_upcoming_count(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     get_patient_or_404(db, patient_id)
     return {"count": service.upcoming_count(db, patient_id)}
