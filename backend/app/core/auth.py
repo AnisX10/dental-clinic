@@ -3,7 +3,9 @@
 Sessions are opaque random tokens; only sha256(token) is stored. The cookie is
 HttpOnly + SameSite=Lax. All authorization happens here, server-side.
 """
-from fastapi import Depends, Request
+from datetime import timedelta
+
+from fastapi import Depends, Request, Response
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as OrmSession
 
@@ -23,24 +25,61 @@ def get_client_ip(request: Request) -> str:
     return ""
 
 
-def _load_session_user(db: OrmSession, token: str) -> User | None:
+def _session_ttl() -> timedelta:
+    from app.core.config import get_settings
+
+    return timedelta(hours=get_settings().session_ttl_hours)
+
+
+def _load_session_user(db: OrmSession, token: str) -> tuple[User | None, bool]:
+    """Return (user, renewed). Sliding expiry: a session in use is extended
+    once less than half of its lifetime remains, so staff are not logged out
+    in the middle of a working day; an idle session still expires."""
     token_hash = security.hash_token(token)
     row = db.execute(
         select(DbSession).where(DbSession.token_hash == token_hash)
     ).scalar_one_or_none()
     if row is None:
-        return None
-    if row.expires_at <= now_tz():
+        return None, False
+    now = now_tz()
+    if row.expires_at <= now:
         db.execute(delete(DbSession).where(DbSession.id == row.id))
-        return None
-    return row.user if row.user.is_active else None
+        return None, False
+    if not row.user.is_active:
+        return None, False
+    ttl = _session_ttl()
+    renewed = False
+    if row.expires_at - now < ttl / 2:
+        row.expires_at = now + ttl
+        renewed = True
+    return row.user, renewed
 
 
-def get_current_user_optional(request: Request, db: OrmSession = Depends(get_db)) -> User | None:
+def get_current_user_optional(
+    request: Request, response: Response, db: OrmSession = Depends(get_db, scope="function")
+) -> User | None:
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         return None
-    return _load_session_user(db, token)
+    user, renewed = _load_session_user(db, token)
+    if renewed:
+        set_session_cookie(response, token)
+    return user
+
+
+def set_session_cookie(response: Response, token: str) -> None:
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    response.set_cookie(
+        COOKIE_NAME,
+        token,
+        httponly=True,
+        samesite="lax",
+        secure=settings.cookie_secure,
+        max_age=settings.session_ttl_hours * 3600,
+        path="/",
+    )
 
 
 def get_current_user(user: User | None = Depends(get_current_user_optional)) -> User:

@@ -5,7 +5,9 @@ that goes into BOTH the customer zip kit (tools/make_release.py) and the
 Setup.exe payload (tools/build_native.py).
 """
 import fnmatch
+import hashlib
 import os
+import tempfile
 from pathlib import Path
 
 # ------------------------------------------------------------- runtime rules --
@@ -50,6 +52,21 @@ RUNTIME_PRUNE_BIN_STUBS = {
 }
 
 
+# PostgreSQL client tools / libraries never used by the app or its
+# maintenance (pg_dump, pg_restore, pg_ctl, initdb, pg_amcheck, pg_checksums,
+# psql stay). ecpg + its libs are the embedded-SQL C precompiler.
+RUNTIME_PRUNE_PG_BIN = {
+    "ecpg.exe",
+    "libecpg.dll",
+    "libecpg_compat.dll",
+    "libpgtypes.dll",
+    "pgbench.exe",
+    "pg_test_fsync.exe",
+    "pg_test_timing.exe",
+    "pg_config.exe",
+}
+
+
 def _runtime_file_ok(rel: str) -> bool:
     rel = rel.replace(os.sep, "/")
     name = rel.rsplit("/", 1)[-1]
@@ -69,6 +86,8 @@ def _runtime_file_ok(rel: str) -> bool:
             # keep README only if tiny? drop: docs never needed at runtime
             return False
         if name == "PG_CREDITS" or name == "PG_FULLCOPYRIGHT":
+            return False
+        if parent.endswith("pgserver/pginstall/bin") and name in RUNTIME_PRUNE_PG_BIN:
             return False
     return True
 
@@ -95,6 +114,9 @@ def _runtime_walk_ok(rel: str, is_dir: bool) -> bool:
             # pgserver source leftovers
             if tail == "pgserver/sources" or tail == "pgserver/_source":
                 return False
+            # C headers for building PostgreSQL extensions (7 MB, never used)
+            if tail == "pgserver/pginstall/include":
+                return False
             # bundled self-tests inside third-party packages
             if tail in ("certifi/tests", "certifi/tests/"):
                 return False
@@ -104,8 +126,12 @@ def _runtime_walk_ok(rel: str, is_dir: bool) -> bool:
 
 
 # ----------------------------------------------------------------- assembly ---
-def select_files(root: Path):
-    """Return ordered [(rel_posix, absolute_path), ...] for the customer package."""
+def select_files(root: Path, with_manifest: bool = True):
+    """Return ordered [(rel_posix, absolute_path), ...] for the customer package.
+
+    The last item is MANIFEST.txt (sha256 + path of every other item), generated
+    into a temp dir, unless with_manifest=False.
+    """
     root = Path(root)
     items = []
 
@@ -143,7 +169,7 @@ def select_files(root: Path):
 
     # scripts (launcher must already be built)
     for f in ("start.bat", "stop.bat", "install.bat", "reset_password.bat",
-              "make_shortcuts.ps1", "HKN Dentaire.exe"):
+              "make_shortcuts.ps1", "read_password.ps1", "HKN Dentaire.exe"):
         p = root / "scripts" / f
         if p.exists():
             add("scripts/" + f, p)
@@ -159,6 +185,12 @@ def select_files(root: Path):
     # runtime (portable python + pgserver)
     add_tree(root / "runtime", "runtime", filter_fn=_runtime_walk_ok)
 
+    # single version source (read by the backend, Setup and the uninstall entry)
+    p = root / "VERSION"
+    if not p.is_file():
+        raise SystemExit("VERSION manquant a la racine du depot.")
+    add("VERSION", p)
+
     # docs
     p = root / "INSTALLATION_GUIDE.md"
     if p.exists():
@@ -167,4 +199,34 @@ def select_files(root: Path):
     if p.exists():
         add("HKN_Dentaire_Installation_Guide.pdf", p)
 
+    if with_manifest:
+        add(MANIFEST_NAME, write_manifest(items))
     return items
+
+
+# ----------------------------------------------------------------- manifest ---
+# MANIFEST.txt is shipped at the install root. The uninstaller
+# (tools/native/HKNUninstall.cs) deletes ONLY the files it lists plus the known
+# application dirs, so user files that share the folder are never touched.
+MANIFEST_NAME = "MANIFEST.txt"
+
+
+def sha256_file(p: Path) -> str:
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def manifest_text(items) -> str:
+    """'<sha256>  <rel_posix>' per line (format parsed by HKNUninstall.cs)."""
+    lines = ["HKN Dentaire - manifeste des fichiers", "sha256  chemin", ""]
+    lines += [sha256_file(p) + "  " + rel for rel, p in items if rel != MANIFEST_NAME]
+    return "\n".join(lines + [""])
+
+
+def write_manifest(items) -> Path:
+    out = Path(tempfile.mkdtemp(prefix="hkn_manifest_")) / MANIFEST_NAME
+    out.write_text(manifest_text(items), encoding="utf-8", newline="\n")
+    return out

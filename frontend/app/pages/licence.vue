@@ -2,37 +2,39 @@
 /**
  * Licence screen — the page shown while the application is locked out.
  * DESIGN.md: calm, one primary action, no decorative noise.
- * The clinic staff reads the installation ID here and installs the .lic file
- * the vendor sent them; no shell access is ever needed.
+ * The clinic staff pastes the licence key (one line, from the vendor) into
+ * the box; no file import and no shell access is ever needed.
  */
 definePageMeta({ layout: false })
 
 const { t, lang, setLang } = useI18n()
 const license = useLicense()
-if (!license.status.value) await license.fetchStatus()
 
-const fileInput = ref<HTMLInputElement | null>(null)
+const pastedKey = ref("")
 const installing = ref(false)
 const errorKey = ref("")
 const successKey = ref("")
+const statusUnavailable = ref(false)
 
-async function onFile(e: Event) {
-  const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ""
-  if (!file || installing.value) return
+async function refreshStatus() {
+  statusUnavailable.value = !(await license.fetchStatus(true))
+}
+
+if (!license.status.value) await refreshStatus()
+
+async function onActivate() {
+  if (installing.value || !pastedKey.value.trim()) return
   installing.value = true
   errorKey.value = ""
   successKey.value = ""
   try {
-    const content = await file.text()
-    await license.installContent(content)
+    await license.activateKey(pastedKey.value)
     successKey.value = "license.installed_ok"
     await navigateTo("/login", { replace: true })
   }
   catch (err: any) {
     errorKey.value = err?.messageKey ?? "license.error_rejected"
-    await license.fetchStatus(true)
+    await refreshStatus()
   }
   finally {
     installing.value = false
@@ -53,6 +55,39 @@ async function onFile(e: Event) {
 
       <p class="small" style="margin-bottom:16px;">{{ t("license.locked_hint") }}</p>
 
+      <div style="margin-bottom:16px;">
+        <div class="money-row">
+          <span class="money-label">{{ t("license.activation_key") }}</span>
+          <span class="small">{{ t("license.key_hint") }}</span>
+        </div>
+        <textarea
+          v-model="pastedKey"
+          class="input-area"
+          rows="3"
+          style="margin-top:8px;width:100%;resize:none;white-space:nowrap;"
+          spellcheck="false"
+          autocomplete="off"
+          :placeholder="t('license.key_placeholder')"
+          @keydown.enter.exact.prevent="onActivate"
+        />
+        <button
+          type="button"
+          class="btn btn-primary"
+          style="width:100%;margin-top:8px;"
+          :disabled="installing || !pastedKey.trim()"
+          @click="onActivate"
+        >
+          {{ installing ? t("license.installing") : t("license.activate_button") }}
+        </button>
+      </div>
+
+      <div v-if="statusUnavailable" class="alert alert-error" role="alert" style="margin-bottom:12px;">
+        {{ t("license.status_unavailable") }}
+        <button type="button" class="btn btn-secondary" style="margin-top:8px;" @click="refreshStatus">
+          {{ t("license.retry_status") }}
+        </button>
+      </div>
+
       <div v-if="license.status.value" style="margin-bottom:16px;">
         <div class="money-row">
           <span class="money-label">{{ t("license.installation_id") }}</span>
@@ -69,17 +104,6 @@ async function onFile(e: Event) {
 
       <div v-if="errorKey" class="alert alert-error" role="alert">{{ t(errorKey) }}</div>
       <div v-if="successKey" class="alert" role="status">{{ t(successKey) }}</div>
-
-      <button
-        type="button"
-        class="btn btn-primary"
-        style="width:100%;"
-        :disabled="installing"
-        @click="fileInput?.click()"
-      >
-        {{ installing ? t("license.installing") : t("license.install_button") }}
-      </button>
-      <input ref="fileInput" type="file" accept=".lic,application/json,text/plain" style="display:none;" @change="onFile">
 
       <div style="margin-top:20px;display:flex;justify-content:center;">
         <select

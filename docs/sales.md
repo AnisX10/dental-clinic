@@ -16,28 +16,35 @@ Complements `DEPLOY.md` (technical installation).
 
 ## 1. Per-client sale steps
 
-1. Install the application at the clinic (DEPLOY.md sections 1–2):
-   venv + requirements, frontend build, PostgreSQL data folder.
-2. `cli.py init-prod` — schema, catalog, first owner account, security audit.
-3. Start the app once; read the **Installation ID** (licence screen or log).
-4. Issue the licence:
+1. Mint the batch of licence keys once (before delivery, e.g. 20 keys):
 
    ```bat
-   .venv\Scripts\python tools\license.py issue --clinic "Clinique X" --dentist "Dr Y" --installation <id>
+   runtime\python.exe tools\license.py mint --count 20 --out keys-batch.txt
    ```
 
-5. Deliver the `.lic`: copy to `data\` (restart) or give the file to the
-   clinic to upload from the licence screen.
-6. Create staff accounts (`cli.py create-user`), owner flag only for the
+   Record next to each fingerprint (`HKN1-xxxxxxxxxx`) the clinic that
+   receives it.
+2. Install the application at the clinic (DEPLOY.md sections 1–2).
+3. Hand over ONE key — the customer runs the Setup and pastes it into the
+   licence page, or pastes it at first opening (Activer). No files, no
+   scripts on the clinic side.
+4. Create staff accounts (`cli.py create-user`), owner flag only for the
    dentist. Complete DEPLOY.md section 7 checklist with the client.
+5. Optional support checks from your machine:
+
+   ```bat
+   runtime\python.exe tools\license.py verify <key-or-file> [--installation <id>]
+   ```
 
 ## 2. Pricing / contract basics (perpetual model)
 
-- One purchase per installation (per database). Moving to a new server PC
-  = new Installation ID = new licence file (free of charge for the same
-  clinic: re-issue with the new ID).
+- One purchase per clinic. A minted key may float to any installation, so
+  record the fingerprint per clinic when handing it out; floating keys can
+  be replaced by a bound key (minted with `--installation <id>`) if ever
+  needed.
 - Updates: seller-supplied app updates use `cli.py upgrade` at the clinic;
-  licence survives (it lives in `data\` and binds to the database).
+  licence survives (the pasted key lives in `data\clinic.key` and binds to
+  the database).
 
 ## 3. Upstream licence review (recorded 2026-10-21)
 

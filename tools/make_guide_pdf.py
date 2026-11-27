@@ -37,7 +37,7 @@ HTML = """<!doctype html>
 <div class="cover">
   <img src="data:image/png;base64,__ICON__" alt="">
   <h1>HKN Dentaire</h1>
-  <div class="cover-sub">Guide d'installation et d'utilisation<br>Version 1.0.0 &mdash; Octobre 2026</div>
+  <div class="cover-sub">Guide d'installation et d'utilisation<br>Version 1.0.0 &mdash; Novembre 2026</div>
 </div>
 
 <h2>1. Ce que vous recevez</h2>
@@ -45,7 +45,7 @@ HTML = """<!doctype html>
   <tr><th>Livraison</th><th>Contenu</th></tr>
   <tr><td><code>HKN Dentaire Setup.exe</code></td><td>Programme d'installation en un seul fichier (recommandé)</td></tr>
   <tr><td><code>HKN Dentaire.zip</code></td><td>Version portable (alternative)</td></tr>
-  <tr><td><code>VotreClinique.lic</code></td><td>Fichier de licence de votre clinique (fourni séparément par votre revendeur)</td></tr>
+  <tr><td><b>Clé de licence</b></td><td>Une ligne de texte (elle commence par <code>HKN1.</code>), fournie par votre revendeur — à coller pendant l'installation ou à la première ouverture</td></tr>
 </table>
 <div class="note"><b>Aucun accès à Internet n'est requis.</b> Tout est intégré : application, base de données, environnements d'exécution.</div>
 
@@ -57,23 +57,23 @@ HTML = """<!doctype html>
 <ol start="2">
   <li>Suivez l'assistant :
     <ul>
-      <li><b>Licence</b> : le programme détecte automatiquement un fichier <code>.lic</code> situé à côté du Setup. Sinon, cliquez sur <i>Parcourir…</i> et sélectionnez <code>VotreClinique.lic</code>.</li>
-      <li><b>Dossier d'installation</b> : gardez la valeur proposée.</li>
-      <li><b>Compte principal</b> : choisissez votre <b>nom d'utilisateur</b> et un <b>mot de passe</b> (10 caractères minimum, lettres + chiffres + un symbole). Notez-les précieusement : ils seront demandés à chaque ouverture.</li>
-      <li><b>Options</b> : raccourci Bureau, accès depuis les autres PC de la clinique (optionnel), lancement automatique.</li>
+      <li><b>Clé de licence</b> : collez la clé reçue de votre revendeur (une seule ligne). Facultatif ici — sans clé, l'écran d'activation s'affichera à la première ouverture et vous pourrez la coller alors.</li>
+      <li><b>Dossier d'installation</b> : gardez la valeur proposée. Le chemin ne doit contenir <b>ni accents ni lettres arabes</b> : si votre nom d'utilisateur Windows en contient, l'assistant propose automatiquement <code>C:\\HKN Dentaire</code>. Évitez OneDrive, les lecteurs réseau et les clés USB.</li>
+      <li><b>Compte principal</b> (première installation) : saisissez le nom complet du dentiste, puis choisissez votre <b>nom d'utilisateur</b> et un <b>mot de passe</b> (10 caractères minimum, lettres + chiffres + un symbole). Notez-les précieusement : ils seront demandés à chaque ouverture. Une mise à jour conserve les comptes existants.</li>
+      <li><b>Options</b> : raccourci Bureau, <b>accès depuis les autres PC de la clinique</b> (uniquement si d'autres postes doivent se connecter), <b>Démarrer HKN Dentaire avec Windows</b> (recommandé sur le PC principal : application et sauvegardes automatiques actives dès l'ouverture de session, sans fenêtre).</li>
     </ul>
   </li>
   <li>À la fin, l'application démarre : une <b>icône en forme de dent</b> apparaît à côté de l'horloge, puis la fenêtre s'ouvre.</li>
   <li>Connectez-vous avec le compte créé à l'étape 3.</li>
 </ol>
-<div class="tip">Votre <b>identifiant d'installation</b> est affiché à la fin de l'installation. Communiquez-le à votre revendeur s'il n'a pas encore généré votre fichier de licence. Il reste consultable dans <b>Paramètres → À propos</b>.</div>
+<div class="tip">Si l'écran <b>Licence</b> s'affiche à l'ouverture : collez la clé dans la zone prévue et cliquez <b>Activer</b>.</div>
 
 <h2>3. Installation — ZIP (alternative)</h2>
 <ol>
-  <li>Clic droit sur le ZIP → <b>Extraire tout</b> dans un dossier (par exemple <code>C:\\Clinique\\Dental care software</code>). <b>Extrayez la totalité du fichier.</b></li>
+  <li>Clic droit sur le ZIP → <b>Extraire tout</b> dans un dossier sans accents (par exemple <code>C:\\Clinique</code>). <b>Extrayez la totalité du fichier.</b></li>
   <li>Ouvrez le dossier extrait, puis le dossier <code>scripts</code>.</li>
   <li>Double-cliquez sur <b>install.bat</b>.</li>
-  <li>Répondez aux questions : <i>Première installation ?</i> → <b>O</b> ; nom du dentiste ; nom d'utilisateur ; <b>mot de passe</b>.</li>
+  <li>Répondez aux questions : <i>Première installation ?</i> → <b>O</b> ; nom du dentiste ; nom d'utilisateur ; <i>accès réseau local ?</i> (<b>O</b> seulement si d'autres PC doivent se connecter) ; <b>clé de licence</b> (collez-la, ou Entrée pour ignorer) ; <b>mot de passe</b>, saisi deux fois.</li>
   <li>Les raccourcis sont créés automatiquement ; l'application se lance.</li>
 </ol>
 <div class="note">Relancer <code>install.bat</code> est sans danger : en choisissant <b>N</b> (mise à jour), les données sont conservées.</div>
@@ -82,17 +82,25 @@ HTML = """<!doctype html>
 <ul>
   <li><b>Lancer</b> : double-cliquez sur le raccourci <b>HKN Dentaire</b> (Bureau ou Menu Démarrer). L'icône dent apparaît à côté de l'horloge pendant le démarrage, puis la fenêtre s'ouvre.</li>
   <li><b>Arrêter</b> : clic droit sur l'icône dent → <b>Arrêter tout et quitter</b> (arrête proprement la base de données).</li>
-  <li><b>Réseau local</b> : si l'option a été activée, les autres postes accèdent à l'application via <code>http://&lt;adresse-de-ce-PC&gt;:8000</code>.</li>
+  <li><b>Réseau local</b> : si l'option a été activée, les autres postes accèdent à l'application via <code>http://&lt;adresse-de-ce-PC&gt;:8000</code>. Sans cette option, seul ce PC peut ouvrir l'application.</li>
+  <li><b>Redémarrage automatique</b> : si l'application s'arrête de façon inattendue, l'icône dent la relance d'elle-même en quelques secondes.</li>
 </ul>
 
 <h2>5. Mise à jour du logiciel</h2>
-<p>Exécutez simplement le <b>nouveau Setup.exe</b> fourni par votre revendeur : il se réinstalle au même emplacement et <b>conserve toutes vos données</b>.</p>
+<p>Exécutez simplement le <b>nouveau Setup.exe</b> fourni par votre revendeur : il se réinstalle au même emplacement et <b>conserve toutes vos données</b>. Une sauvegarde complète est faite automatiquement avant toute modification de la base de données.</p>
 <p>Avec la version ZIP : extraire le nouveau ZIP puis relancer <code>install.bat</code> en choisissant <b>N</b> (mise à jour).</p>
 <h2>6. Mot de passe oublié</h2>
 <p>Lancez <code>scripts\\reset_password.bat</code> (dans le dossier d'installation), saisissez un nouveau mot de passe et confirmez. Les données patients ne sont pas modifiées.</p>
 
 <h2>7. Sauvegardes</h2>
-<p>Menu <b>Paramètres → Sauvegardes</b> de l'application : créez une sauvegarde à tout moment. Il est recommandé de faire une sauvegarde <b>chaque fin de journée</b> et de conserver une copie sur clé USB ou disque externe.</p>
+<ul>
+  <li><b>Automatiques</b> : une sauvegarde par jour (13 h par défaut, modifiable dans <b>Paramètres → Sauvegardes</b>). Si le PC était éteint à l'heure prévue, elle est faite dans les minutes qui suivent le prochain démarrage. Les radiographies et documents joints sont sauvegardés avec la base.</li>
+  <li><b>Vérification</b> : chaque semaine, la dernière sauvegarde est restaurée dans une base de test pour vérifier qu'elle est exploitable.</li>
+  <li><b>Alertes</b> : l'écran d'accueil signale une sauvegarde en retard ou en échec, et un disque presque plein.</li>
+  <li><b>Manuelle</b> : <b>Paramètres → Sauvegardes → Sauvegarder maintenant</b>.</li>
+  <li><b>Copie externe</b> : les sauvegardes sont dans <code>data\\backups</code> (dossier d'installation). Copiez ce dossier régulièrement sur une clé USB ou un disque externe.</li>
+  <li><b>Restauration</b> (avec votre revendeur) : les données actuelles sont d'abord sauvegardées et conservées ; en cas d'échec, rien n'est modifié.</li>
+</ul>
 
 <h2>8. Dépannage</h2>
 <table>
@@ -102,14 +110,18 @@ HTML = """<!doctype html>
   <tr><td><i>runtime absent / incomplet</i> (version ZIP)</td><td>Le ZIP n'a pas été extrait entièrement — ré-extrayez tout</td></tr>
   <tr><td>L'application ne s'ouvre pas</td><td>Double-cliquez sur l'icône dent à côté de l'horloge ; si besoin utilisez <i>Console de diagnostic</i></td></tr>
   <tr><td>Mot de passe oublié / à changer</td><td><code>scripts\\reset_password.bat</code></td></tr>
-  <tr><td>Licence expirée ou absente</td><td>Page <b>Licence</b> de l'application : importez le nouveau fichier <code>.lic</code></td></tr>
+  <tr><td>Écran Licence demandé à l'ouverture</td><td>Collez la clé de licence reçue de votre revendeur (commence par <code>HKN1.</code>) puis cliquez <b>Activer</b></td></tr>
+  <tr><td>Bandeau « Licence inactive : consultation et sauvegarde uniquement »</td><td>Vos données restent consultables et sauvegardables ; activez la licence (<b>Paramètres → Licence</b>) pour pouvoir les modifier</td></tr>
+  <tr><td>« Le dossier d'installation contient des caractères non pris en charge »</td><td>Réinstallez dans <code>C:\\HKN Dentaire</code> (voir §2)</td></tr>
+  <tr><td>Clé refusée (« illisible » ou « signature »)</td><td>Vérifiez que la clé est collée entière, sur une seule ligne ; sinon demandez une nouvelle clé au revendeur</td></tr>
 </table>
 
 <h2>9. Assistance</h2>
 <p>Contactez votre revendeur (HKN) en joignant :</p>
 <ol>
   <li>Une capture d'écran du message d'erreur ;</li>
-  <li>Votre <b>identifiant d'installation</b> (visible dans <b>Paramètres → À propos</b>).</li>
+  <li>Votre <b>identifiant d'installation</b> (visible sur l'écran <b>Licence</b> ou dans <b>Paramètres → Licence</b>) ;</li>
+  <li>Les journaux : clic droit sur l'icône dent → <b>Ouvrir les journaux</b>, puis joignez le fichier <code>server.log</code>.</li>
 </ol>
 
 <footer>HKN Dentaire v1.0.0 — Guide d'installation et d'utilisation — document fourni avec le logiciel.</footer>

@@ -12,10 +12,105 @@ namespace HKN
 {
     public static class Common
     {
-        public const int Port = 8000;
+        public const int DefaultPort = 8000;
+
+        // data\config.json = {"port": 8000, "lan": false}, written by Setup and
+        // read by the launcher/scripts. Missing file or keys -> 8000 / false.
+        public static int Port
+        {
+            get { return ReadPort(RootDir); }
+        }
+
+        public static int ReadPort(string root)
+        {
+            string json = ReadConfigText(root);
+            var m = System.Text.RegularExpressions.Regex.Match(json ?? "", "\"port\"\\s*:\\s*(\\d{1,5})");
+            int port;
+            if (m.Success && int.TryParse(m.Groups[1].Value, out port) && port > 0 && port < 65536) return port;
+            return DefaultPort;
+        }
+
+        public static bool ReadLan(string root)
+        {
+            string json = ReadConfigText(root);
+            return System.Text.RegularExpressions.Regex.IsMatch(json ?? "", "\"lan\"\\s*:\\s*true");
+        }
+
+        public static string ConfigPath(string root)
+        {
+            return Path.Combine(root, "data", "config.json");
+        }
+
+        static string ReadConfigText(string root)
+        {
+            try
+            {
+                string p = ConfigPath(root);
+                return File.Exists(p) ? File.ReadAllText(p) : null;
+            }
+            catch (Exception) { return null; }
+        }
         public const string AppName = "HKN Dentaire";
         public const string MutexName = "HKN.Dentaire.Instance";
         public const string ShowAppEventName = "HKN.Dentaire.ShowApp";
+
+        // --- start with Windows (HKCU Run, per user, no elevation) -----------
+        public const string AutostartValueName = "HKN Dentaire";
+        const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+
+        public static string LauncherExe(string root)
+        {
+            return Path.Combine(root, "scripts", "HKN Dentaire.exe");
+        }
+
+        public static string AutostartCommand(string root)
+        {
+            return "\"" + LauncherExe(root) + "\" /background";
+        }
+
+        // Raw Run value, or null when absent.
+        public static string ReadAutostartValue()
+        {
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKeyPath, false))
+                    return key == null ? null : key.GetValue(AutostartValueName) as string;
+            }
+            catch (Exception) { return null; }
+        }
+
+        // True when the Run value exists and starts THIS installation.
+        public static bool IsAutostartEnabled(string root)
+        {
+            string v = ReadAutostartValue();
+            return v != null && v.IndexOf(LauncherExe(root), StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        // Returns null on success, else a short error message.
+        public static string SetAutostart(string root, bool enabled)
+        {
+            try
+            {
+                if (!enabled) { RemoveAutostartFor(root); return null; }
+                using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RunKeyPath))
+                    key.SetValue(AutostartValueName, AutostartCommand(root), Microsoft.Win32.RegistryValueKind.String);
+                return null;
+            }
+            catch (Exception ex) { return ex.Message; }
+        }
+
+        // Deletes the Run value only if it points at this installation (another
+        // install on the same account keeps its own setting).
+        public static void RemoveAutostartFor(string root)
+        {
+            try
+            {
+                if (!IsAutostartEnabled(root)) return;
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKeyPath, true))
+                    if (key != null) key.DeleteValue(AutostartValueName, false);
+            }
+            catch (Exception) { }
+        }
 
         public static string RootDir
         {
@@ -121,31 +216,113 @@ namespace HKN
 
         public static void GracefulStop()
         {
-            // pg_ctl clean stop of the bundled database, no force.
-            RunHidden(BackendPython, "\"" + Path.Combine(RootDir, "backend", "app", "cli.py") + "\" stop-server", 45000);
-            KillOwnServerProcess();
+            GracefulStop(RootDir);
+        }
+
+        // Same, for an explicit install root (used by Setup, whose exe is not
+        // inside the installation).
+        public static void GracefulStop(string root)
+        {
+            GracefulStop(root, GentleExitWaitMs);
+        }
+
+        // waitForExitMs: how long python gets to exit on its own after the
+        // database stopped (0 = kill right away, used at logoff when time is short).
+        public static void GracefulStop(string root, int waitForExitMs)
+        {
+            StopDatabase(root); // pg_ctl clean stop of the bundled database, no force.
+            KillOwnServerProcess(root, false, waitForExitMs);
+        }
+
+        public const int GentleExitWaitMs = 10000;
+
+        // Runs `cli.py stop-server` (clean PostgreSQL shutdown). True if it ran and exited 0.
+        public static bool StopDatabase(string root)
+        {
+            string py = Path.Combine(root, "runtime", "python.exe");
+            if (!File.Exists(py)) py = Path.Combine(root, ".venv", "Scripts", "python.exe"); // dev checkout
+            string cli = Path.Combine(root, "backend", "app", "cli.py");
+            if (!File.Exists(py) || !File.Exists(cli)) return false;
+            var psi = new ProcessStartInfo(py, "\"" + cli + "\" stop-server")
+            {
+                WorkingDirectory = root,
+                CreateNoWindow = true,
+                UseShellExecute = false,
+            };
+            try
+            {
+                using (var p = Process.Start(psi))
+                    return p.WaitForExit(45000) && p.ExitCode == 0;
+            }
+            catch (Exception) { return false; }
         }
 
         public static void KillOwnServerProcess()
         {
+            KillOwnServerProcess(RootDir);
+        }
+
+        // Gentle by default: if our server is running, stop PostgreSQL cleanly
+        // first, give python up to 10 s to exit, and only then kill it.
+        public static void KillOwnServerProcess(string root)
+        {
+            KillOwnServerProcess(root, true, GentleExitWaitMs);
+        }
+
+        // Returns null when no server process was found, else a one-line summary
+        // of what happened (for tray.log / the setup log).
+        public static string KillOwnServerProcess(string root, bool stopDatabaseFirst, int waitForExitMs)
+        {
+            var procs = FindOwnServerProcesses(root);
+            if (procs.Count == 0) return null;
+            var sw = Stopwatch.StartNew();
+            string db = "not requested";
+            int exited = 0, killed = 0;
             try
             {
-                foreach (var proc in Process.GetProcessesByName("python"))
+                if (stopDatabaseFirst) db = StopDatabase(root) ? "stopped cleanly" : "stop failed or not running";
+                var deadline = DateTime.UtcNow.AddMilliseconds(Math.Max(0, waitForExitMs));
+                foreach (var proc in procs)
                 {
                     try
                     {
-                        string cl = CommandLineOf(proc.Id);
-                        if (!string.IsNullOrEmpty(cl) &&
-                            (cl.IndexOf(Path.Combine(RootDir, "backend", "app", "launcher.py"), StringComparison.OrdinalIgnoreCase) >= 0
-                             || cl.IndexOf("app\\launcher.py", StringComparison.OrdinalIgnoreCase) >= 0))
-                        {
-                            if (!proc.HasExited) proc.Kill();
-                        }
+                        int left = (int)Math.Max(0, (deadline - DateTime.UtcNow).TotalMilliseconds);
+                        if (proc.HasExited || proc.WaitForExit(left)) exited++;
+                        else { proc.Kill(); killed++; }
                     }
-                    finally { proc.Dispose(); }
+                    catch (Exception) { }
+                }
+            }
+            finally
+            {
+                foreach (var proc in procs) proc.Dispose();
+            }
+            return "database " + db + "; python: " + exited + " exited, " + killed + " killed (" +
+                (sw.ElapsedMilliseconds / 1000.0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s)";
+        }
+
+        // python.exe processes running this installation's backend\app\launcher.py.
+        // Uses WMI: do not call from inside a synchronous window message (logoff).
+        public static List<Process> FindOwnServerProcesses(string root)
+        {
+            var found = new List<Process>();
+            try
+            {
+                string launcherScript = Path.GetFullPath(Path.Combine(root, "backend", "app", "launcher.py"));
+                foreach (var proc in Process.GetProcessesByName("python"))
+                {
+                    bool keep = false;
+                    try
+                    {
+                        string cl = CommandLineOf(proc.Id);
+                        keep = !string.IsNullOrEmpty(cl) && cl.IndexOf(launcherScript, StringComparison.OrdinalIgnoreCase) >= 0;
+                    }
+                    catch (Exception) { }
+                    if (keep) found.Add(proc); else proc.Dispose();
                 }
             }
             catch (Exception) { }
+            return found;
         }
 
         public static string CommandLineOf(int pid)
@@ -267,23 +444,68 @@ namespace HKN
             {
                 if (_bitmap96 == null)
                 {
-                    using (var s = StreamForIcon())
+                    var bmp = new System.Drawing.Bitmap(96, 96);
+                    using (var g = System.Drawing.Graphics.FromImage(bmp))
                     {
-                        var ico = s != null ? new System.Drawing.Icon(s) : System.Drawing.Icon.ExtractAssociatedIcon(
-                            System.Reflection.Assembly.GetExecutingAssembly().Location);
-                        _bitmap96 = new System.Drawing.Bitmap(96, 96);
-                        using (var g = System.Drawing.Graphics.FromImage(_bitmap96))
+                        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+                        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                        g.Clear(System.Drawing.Color.White);
+                        var rect = new System.Drawing.Rectangle(2, 2, 92, 92);
+                        // app.ico frames are PNG-compressed: .NET Framework's Icon drawing
+                        // (DrawIcon/ToBitmap) throws on those, so decode the PNG ourselves.
+                        try
                         {
-                            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-                            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
-                            g.Clear(System.Drawing.Color.White);
-                            g.DrawIcon(ico, new System.Drawing.Rectangle(2, 2, 92, 92));
+                            using (var png = LargestPngFrame())
+                            {
+                                if (png != null) g.DrawImage(png, rect);
+                                else
+                                {
+                                    using (var ico = System.Drawing.Icon.ExtractAssociatedIcon(
+                                        System.Reflection.Assembly.GetExecutingAssembly().Location))
+                                        g.DrawIcon(ico, rect);
+                                }
+                            }
                         }
+                        catch (Exception) { } // a blank tile is better than a crash
                     }
+                    _bitmap96 = bmp;
                 }
                 return _bitmap96;
             }
+        }
+
+        // Returns the biggest PNG-encoded frame of the embedded app.ico, or null.
+        static System.Drawing.Bitmap LargestPngFrame()
+        {
+            byte[] ico;
+            using (var s = StreamForIcon())
+            {
+                if (s == null) return null;
+                using (var ms = new MemoryStream())
+                {
+                    s.CopyTo(ms);
+                    ico = ms.ToArray();
+                }
+            }
+            if (ico.Length < 6) return null;
+            int count = BitConverter.ToUInt16(ico, 4);
+            int bestSize = -1, bestOff = 0, bestLen = 0;
+            for (int i = 0; i < count; i++)
+            {
+                int e = 6 + 16 * i;
+                if (e + 16 > ico.Length) break;
+                int w = ico[e] == 0 ? 256 : ico[e];
+                int len = (int)BitConverter.ToUInt32(ico, e + 8);
+                int off = (int)BitConverter.ToUInt32(ico, e + 12);
+                if (off < 0 || len <= 8 || off + len > ico.Length) continue;
+                bool isPng = ico[off] == 0x89 && ico[off + 1] == (byte)'P' && ico[off + 2] == (byte)'N' && ico[off + 3] == (byte)'G';
+                if (isPng && w > bestSize) { bestSize = w; bestOff = off; bestLen = len; }
+            }
+            if (bestSize < 0) return null;
+            using (var ms = new MemoryStream(ico, bestOff, bestLen))
+            using (var img = System.Drawing.Image.FromStream(ms))
+                return new System.Drawing.Bitmap(img); // copy: detach from the stream
         }
 
         static System.IO.Stream StreamForIcon()

@@ -3,7 +3,7 @@
 Zero-configuration launcher that provides:
 1. Relocatable portable runtime compatibility.
 2. Port collision & race condition management (graceful [Errno 10048] handling).
-3. Automated database bootstrap (migrations + catalog + default doctor account on cold start).
+3. Database migrations on cold start; production accounts are created by the installer.
 4. Automatic application browser/window launch on ready.
 """
 import argparse
@@ -24,11 +24,10 @@ PROJECT_ROOT = BACKEND_DIR.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
+from app.core.logging_setup import configure_logging  # noqa: E402
+
+if not os.environ.get("PYTEST_CURRENT_TEST"):
+    configure_logging(PROJECT_ROOT / "data" / "logs")
 logger = logging.getLogger("clinic.launcher")
 
 
@@ -79,13 +78,10 @@ def _pid_matches_our_app(pid: int) -> bool:
         cmdline = (proc.stdout or "").strip()
         if not cmdline:
             return False
-        low = cmdline.lower()
-        return (
-            root_marker.lower() in low
-            or "app\\launcher.py" in low
-            or "app/launcher.py" in low
-            or "clinic" in low
-        )
+        # Only THIS install's launcher counts: another clinic program or a
+        # second HKN install on the same port must never be killed.
+        own_launcher = str(Path(root_marker) / "backend" / "app" / "launcher.py").lower()
+        return own_launcher in cmdline.lower().replace("/", "\\")
     except Exception:
         return False
 
@@ -115,7 +111,7 @@ def kill_process_on_port(port: int) -> bool:
             name = "?"
         logger.error(
             "Port %d is occupied by another program (%s, PID %d). Please close that program, "
-            "or change the port with CLINIC_PORT before starting again.",
+            "or change \"port\" in data\\config.json before starting again.",
             port, name or "unknown", pid,
         )
     for pid in ours:
@@ -178,22 +174,16 @@ def schedule_browser_open(port: int, as_app: bool = True, max_wait: float = 30.0
 
 
 def ensure_database_bootstrapped() -> None:
-    """Ensure database schema is up-to-date and an initial doctor account exists."""
-    from alembic import command
-    from alembic.config import Config
+    """Migrate the database and refuse startup until production has an owner."""
     from sqlalchemy import select
 
     from app.core.db import dispose_engine, get_session_factory
     from app.core.models import User
-    from app.core.services import create_user, seed_catalog
-
-    ini = BACKEND_DIR / "alembic.ini"
-    cfg = Config(str(ini))
-    cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
-    cfg.attributes["configure_logger"] = False
+    from app.core.schema import migrate_to_head
 
     try:
-        command.upgrade(cfg, "head")
+        # Backs up first whenever a migration is needed (after an update).
+        migrate_to_head()
         logger.info("Database schema is up to date.")
     except Exception as exc:
         logger.error("Database migration error: %s", exc)
@@ -203,40 +193,44 @@ def ensure_database_bootstrapped() -> None:
         factory = get_session_factory()
         from sqlalchemy import func
         with factory() as db:
-            user_count = db.execute(select(func.count(User.id))).scalar() or 0
-            if user_count == 0:
-                logger.info("Initializing default clinic account and treatment catalog...")
-                seed_catalog(db)
-                create_user(
-                    db,
-                    username="dentiste",
-                    password="Cabinet2026!",
-                    full_name="Dr. Dentiste",
-                    role="dentiste",
-                    is_owner=True,
+            owner_count = db.execute(
+                select(func.count(User.id)).where(User.is_owner.is_(True))
+            ).scalar() or 0
+            if owner_count == 0:
+                raise RuntimeError(
+                    "No clinic owner account exists. Run scripts\\install.bat or "
+                    "backend\\app\\cli.py init-prod to finish setup."
                 )
-                db.commit()
-                logger.info("Default account created: dentiste / Cabinet2026!")
     except Exception as exc:
-        logger.warning("Database bootstrap notice: %s", exc)
+        logger.error("Database bootstrap failed: %s", exc)
+        raise
     finally:
         dispose_engine()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="HKN Dentaire Server Launcher")
-    parser.add_argument("--host", default="0.0.0.0", help="Host interface to bind (default: 0.0.0.0)")
-    parser.add_argument("--port", type=int, default=8000, help="Port to bind (default: 8000)")
+    parser.add_argument(
+        "--host", default=None,
+        help="Interface to bind (default: from data/config.json: 127.0.0.1, or 0.0.0.0 when LAN is enabled)",
+    )
+    parser.add_argument("--port", type=int, default=None, help="Port (default: from data/config.json, else 8000)")
     parser.add_argument("--no-browser", action="store_true", help="Do not automatically launch browser")
     parser.add_argument("--browser-only", action="store_true", help="Plain browser tab instead of app window")
     parser.add_argument("--no-pause", action="store_true", help="Ignored flag for compatibility with batch scripts")
     args = parser.parse_args()
 
-    port = args.port
-    host = args.host
+    from app.core.runtime_config import load_runtime_config
+
+    runtime_cfg = load_runtime_config()
+    port = args.port or runtime_cfg.port
+    host = args.host or runtime_cfg.bind_host
     as_app = not args.browser_only
 
-    logger.info("Starting HKN Dentaire launcher (target port: %d)...", port)
+    logger.info(
+        "Starting HKN Dentaire launcher (port %d, %s)...",
+        port, "network access enabled" if host != "127.0.0.1" else "this PC only",
+    )
 
     # 1. Pre-flight check: is port already occupied?
     if is_port_listening("127.0.0.1", port):
@@ -267,6 +261,9 @@ def main() -> int:
         port=port,
         log_level="info",
         lifespan="on",
+        # Keep our rotating file handler: uvicorn must not replace logging.
+        log_config=None,
+        access_log=False,
     )
     server = uvicorn.Server(config)
 

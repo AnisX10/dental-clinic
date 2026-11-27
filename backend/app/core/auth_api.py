@@ -40,7 +40,7 @@ def _public_user(user: User) -> dict:
 
 
 @router.post("/login")
-def login(payload: LoginIn, request: Request, response: Response, db: OrmSession = Depends(get_db)):
+def login(payload: LoginIn, request: Request, response: Response, db: OrmSession = Depends(get_db, scope="function")):
     settings = get_settings()
     ip = get_client_ip(request)
     username = payload.username.strip().lower()
@@ -89,7 +89,7 @@ def login(payload: LoginIn, request: Request, response: Response, db: OrmSession
 def logout(
     request: Request,
     response: Response,
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     token = request.cookies.get(COOKIE_NAME, "")
@@ -105,12 +105,12 @@ def me(user: User = Depends(get_current_user)):
 
 
 @router.get("/users")
-def list_users(user: User = Depends(get_current_user), db: OrmSession = Depends(get_db)):
+def list_users(user: User = Depends(get_current_user), db: OrmSession = Depends(get_db, scope="function")):
     """User list (for settings page). Any authenticated user may view names/roles."""
     rows = db.execute(select(User).order_by(User.username)).scalars().all()
     return {"users": [_public_user(u) | {"is_active": u.is_active} for u in rows]}
 
 
 @router.get("/users/count")
-def users_count(user: User = Depends(require_owner), db: OrmSession = Depends(get_db)):
+def users_count(user: User = Depends(require_owner), db: OrmSession = Depends(get_db, scope="function")):
     return {"count": db.execute(select(func.count(User.id))).scalar() or 0}

@@ -5,21 +5,37 @@ Serves the API and, in production, the built Nuxt SPA from the same origin
 """
 import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import FRONTEND_DIST, get_settings
-from app.core.db import check_database
+from app.core.db import database_healthy
 from app.core.errors import register_exception_handlers
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+if not os.environ.get("PYTEST_CURRENT_TEST"):
+    from app.core.logging_setup import configure_logging
+
+    configure_logging()  # no-op when the launcher already did it
 logger = logging.getLogger("clinic")
 
-app = FastAPI(title="Clinique Dentaire", docs_url=None, redoc_url=None, openapi_url=None)
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    scheduler = await run_in_threadpool(_startup)
+    try:
+        yield
+    finally:
+        await run_in_threadpool(_shutdown, scheduler)
+
+
+app = FastAPI(
+    title="Clinique Dentaire", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan
+)
 
 # Production serves the SPA from the same origin -> no CORS headers at all.
 # Localhost dev origins are enabled for the Nuxt dev server only, plus any
@@ -39,23 +55,39 @@ app.add_middleware(
 )
 
 
-# License lockout: no valid .lic file -> every /api call except health and the
-# license endpoints returns 403. The SPA itself stays downloadable so the lock
-# screen can render and show the installation ID to the clinic.
-_EXEMPT_API = {"/api/health", "/api/license/status", "/api/license/install"}
+# License lockout. Without a valid licence the clinic must still be able to
+# READ its own records and save them: GET requests, login/logout and backups
+# stay open; every other write returns 403 license_locked (the SPA then shows
+# the licence screen where the key can be pasted).
+_EXEMPT_API = {"/api/health", "/api/license/status", "/api/license/activate"}
+_LOCKED_OPEN_PREFIXES = ("/api/auth/", "/api/backup/")
+_LICENSE_RELOAD_SECONDS = 60.0
+_last_license_reload = 0.0
 
 
 @app.middleware("http")
 async def license_lockout(request, call_next):
+    global _last_license_reload
     path = request.url.path
     if path.startswith("/api") and path not in _EXEMPT_API:
+        import time
+
         from app.licensing import service
 
-        if not service.get_manager().state.active:
-            return JSONResponse(
-                {"error": {"code": "license_locked", "message_key": "license.locked", "values": {}}},
-                status_code=403,
-            )
+        manager = service.get_manager()
+        if not manager.state.active and time.monotonic() - _last_license_reload > _LICENSE_RELOAD_SECONDS:
+            # The key file may have been unreadable for a moment at start-up
+            # (antivirus scan, disk wake-up): re-read instead of staying locked
+            # until the next restart.
+            _last_license_reload = time.monotonic()
+            await run_in_threadpool(manager.load)
+        if not manager.state.active:
+            read_only = request.method in ("GET", "HEAD", "OPTIONS")
+            if not (read_only or path.startswith(_LOCKED_OPEN_PREFIXES)):
+                return JSONResponse(
+                    {"error": {"code": "license_locked", "message_key": "license.locked", "values": {}}},
+                    status_code=403,
+                )
     return await call_next(request)
 
 register_exception_handlers(app)
@@ -93,7 +125,10 @@ app.include_router(backup_router)
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "database": check_database()}
+    # 503 when the database is down, so the tray watchdog restarts the stack
+    # (the server first tries to restart its bundled PostgreSQL itself).
+    db_ok = database_healthy()
+    return JSONResponse({"ok": db_ok, "database": db_ok}, status_code=200 if db_ok else 503)
 
 
 # --------------------------------------------------------------------------- #
@@ -130,16 +165,13 @@ else:
 # --------------------------------------------------------------------------- #
 
 
-@app.on_event("startup")
-def startup() -> None:
-    from app.core.db import get_session_factory
+def _startup():
+    """Schema check, licence load, backup scheduler. Returns the scheduler."""
+    from app.core.schema import migrate_to_head
     from app.licensing import service
 
-    db = get_session_factory()()
-    try:
-        _ensure_schema(db)
-    finally:
-        db.close()
+    # No-op when the launcher already migrated; backs up first otherwise.
+    migrate_to_head()
 
     state = service.get_manager().load()
     if state.active:
@@ -150,22 +182,16 @@ def startup() -> None:
     if not os.environ.get("PYTEST_CURRENT_TEST"):
         from app.backup.service import BackupScheduler
 
-        BackupScheduler().start()
+        scheduler = BackupScheduler()
+        scheduler.start()
+        return scheduler
+    return None
 
 
-def _ensure_schema(db) -> None:
-    """Create/upgrade schema via Alembic on startup (idempotent)."""
-    from alembic import command
-    from alembic.config import Config
+def _shutdown(scheduler) -> None:
+    from app.core.db import dispose_engine
 
-
-    ini = Path(__file__).resolve().parents[1] / "alembic.ini"
-    cfg = Config(str(ini))
-    cfg.set_main_option("script_location", str(ini.parent / "migrations"))
-    cfg.attributes["configure_logger"] = False
-    try:
-        command.upgrade(cfg, "head")
-        logger.info("Database schema is up to date")
-    except Exception:
-        logger.exception("Migration failed")
-        raise
+    if scheduler is not None:
+        scheduler.stop()
+    dispose_engine()
+    logger.info("Server stopped cleanly")

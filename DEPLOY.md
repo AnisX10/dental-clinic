@@ -40,24 +40,43 @@ Passwords must be at least 10 characters and mix letters, digits and a symbol.
 
 ### Licence activation (seller step)
 
-The application starts **locked** until a signed licence file is installed.
-Perpetual per-clinic licence; validation is fully offline (no internet needed).
+The application starts **locked** until a licence key is pasted. Perpetual
+per-clinic licence; validation is fully offline (no internet needed).
 
-1. Start the app once (`scripts\start.bat`); the log prints the
-   **installation ID**, and the licence screen (shown instead of the login)
-   displays it as well.
-2. From the seller machine, issue the licence:
+1. Mint a batch of paste-in keys BEFORE delivery (e.g. 10-20 keys ready to
+   hand out, one per installation):
 
    ```bat
-   .venv\Scripts\python tools\license.py issue --clinic "Clinique X" --dentist "Dr Y" --installation <installation-id>
+   runtime\python.exe tools\license.py mint --count 20 --out keys-batch.txt
    ```
 
-3. Copy the produced `.lic` file into the clinic's `data\` folder (restart)
-   or upload it from the licence screen — the app unlocks immediately.
+   Each line is one key (`HKN1.xxxx.yyyy`) plus a short fingerprint
+   (`HKN1-xxxxxxxxxx`). Print/save the manifest and note next to each
+   fingerprint which clinic received it.
+
+2. Hand over ONE key per installation — by email, chat message or printed
+   note; the clinic pastes it. Delivery options, in order of smoothness:
+   - Type the key into the **Setup wizard** licence page while installing
+     (you, or whoever runs the setup at the clinic).
+   - Or the clinic pastes it at first opening into the licence screen and
+     clicks **Activer**.
+   - Or already inside Paramètres → the same paste box (owner account).
+
+3. Optional: bind a key to one specific installation
+
+   ```bat
+   runtime\python.exe tools\license.py mint --count 1 --installation <id> --clinic "Clinique X" --dentist "Dr Y"
+   ```
+
+4. Check any key (or a suspicious pasted one from a clinic) before/after:
+
+   ```bat
+   runtime\python.exe tools\license.py verify <key-or-file> [--installation <id>]
+   ```
 
 The signing private key (`tools\license\private.pem`) never leaves the seller
-and must never be committed. Each installation has a different ID, so a
-licence file only works on that one database.
+and must never be committed. Keep `issue` (signed `.lic` files) only for
+already-activated legacy installations — the app still reads them.
 
 Then create the other accounts (owner flag only for the dentist):
 

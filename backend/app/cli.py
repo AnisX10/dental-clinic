@@ -48,6 +48,10 @@ def main() -> int:
         help="If an owner account with this username already exists, RESET its password and full name",
     )
 
+    sub.add_parser(
+        "check-password",
+        help="Check CLINIC_INIT_PASSWORD against the production policy (exit 0 = OK, 2 = rejected)",
+    )
     sub.add_parser("stop-server", help="Gracefully stop the bundled PostgreSQL server (clean shutdown)")
     p_print_id = sub.add_parser("print-installation-id", help="Print the installation ID used for licensing")
     p_print_id.add_argument("--json", action="store_true", help="Machine-readable output")
@@ -56,6 +60,17 @@ def main() -> int:
 
 
 def _run(args) -> int:
+    if args.command == "check-password":
+        # Read from the environment so the password never appears on a
+        # command line (visible to other processes). No database needed.
+        import os
+
+        problem = _prod_password_problem(os.environ.get("CLINIC_INIT_PASSWORD", ""))
+        if problem:
+            print(_password_problem_fr(problem))
+            return 2
+        return 0
+
     if args.command == "version":
         return _version()
 
@@ -111,13 +126,10 @@ def _run(args) -> int:
 
 
 def _run_migrations() -> None:
-    from alembic import command
-    from alembic.config import Config
+    """Upgrade to head, taking a pre-upgrade backup first when needed."""
+    from app.core.schema import migrate_to_head
 
-    ini = Path(__file__).resolve().parents[1] / "alembic.ini"
-    cfg = Config(str(ini))
-    cfg.set_main_option("script_location", str(ini.parent / "migrations"))
-    command.upgrade(cfg, "head")
+    migrate_to_head()
 
 
 def _version() -> int:
@@ -140,28 +152,21 @@ def _upgrade() -> int:
     import subprocess
 
     from app.core.config import APP_VERSION, FRONTEND_DIST
-    from app.core.db import get_session_factory
 
     print(f"Upgrading to v{APP_VERSION}...")
 
-    # 1) Pre-upgrade safety dump (skipped politely on a brand-new empty DB).
-    factory = get_session_factory()
-    try:
-        with factory() as db:
-            try:
-                from app.backup.service import run_backup
+    # 1+2) Schema migrations, preceded by a verified safety dump whenever the
+    # schema actually changes. A failed dump aborts the upgrade.
+    from app.core.schema import SchemaError, migrate_to_head
 
-                record = run_backup(db, kind="manual", reason="pre-upgrade")
-                db.commit()
-                print(f"Backup saved: {Path(record.file_path).name}")
-            except Exception as exc:
-                db.rollback()
-                print(f"Skipped pre-upgrade backup: {exc}")
+    try:
+        if not migrate_to_head():
+            print("No schema change needed.")
+    except SchemaError as exc:
+        print(f"Upgrade aborted: {exc}")
+        return 1
     finally:
         dispose_engine()
-
-    # 2) Schema migrations.
-    _run_migrations()
     print("Schema is up to date.")
 
     # 3) Frontend bundle (Shipped by FastAPI from frontend/.output/public).
@@ -185,82 +190,134 @@ def _upgrade() -> int:
 
 
 def _restore(backup_path: Path, *, assume_yes: bool) -> int:
-    """Restore a pg_dump custom-format backup into the clinic database.
+    """Restore a pg_dump backup without ever leaving the clinic half-wiped.
 
-    Drops and recreates the public schema, then pg_restore. The app must be
-    stopped while restoring (connections would block the drop).
+    1. Refuse while the application is running.
+    2. Check the backup is a readable archive.
+    3. Take a safety backup of the current data.
+    4. Restore into a scratch database in ONE transaction (all or nothing).
+    5. Swap databases by renaming; the previous one is kept as
+       ``clinic_before_restore`` until the next restore.
+    6. Put back attachment files from the backup mirror (never overwriting).
     """
+    import shutil
+
+    from sqlalchemy import create_engine, text
+
+    from app.backup.service import _pg_dump_path, _verify_dump, run_backup
+    from app.core.config import get_settings
+    from app.core.db import dispose_engine, get_engine, get_session_factory
+
     if not backup_path.is_file():
         print(f"Error: backup file not found: {backup_path}", file=sys.stderr)
         return 1
+    if _app_is_running():
+        print(
+            "HKN Dentaire est en cours d'execution. Fermez-le (clic droit sur l'icone -> Quitter, "
+            "ou scripts\\stop.bat) puis relancez la restauration.",
+            file=sys.stderr,
+        )
+        return 1
+    try:
+        _verify_dump(backup_path, _pg_dump_path())
+    except Exception as exc:
+        print(f"Error: this file is not a valid backup ({exc}).", file=sys.stderr)
+        return 1
     if not assume_yes:
         answer = input(
-            f"This will ERASE all current data and restore {backup_path.name}. Continue? [y/N] "
+            f"This will REPLACE all current data with {backup_path.name} "
+            "(a safety backup is taken first). Continue? [y/N] "
         )
         if answer.strip().lower() not in ("y", "yes"):
             print("Aborted.")
             return 1
 
-    from app.core.db import get_engine
+    live = get_engine().url.database or "clinic"
+    scratch, previous = f"{live}_restore", f"{live}_before_restore"
+    url = get_engine().url
 
-    dbname = get_engine().url.database or ""
-    print("Restoring...")
-    fatal = _pg_restore_fatal(dbname, backup_path)
-    if fatal:
-        print("Restore failed:", file=sys.stderr)
-        print("\n".join(fatal[:10]), file=sys.stderr)
-        return 1
-    print(f"Restore complete from {backup_path.name}.")
+    print("Safety backup of the current data...")
+    with get_session_factory()() as db:
+        try:
+            record = run_backup(db, kind="manual", reason="pre-restore")
+            db.commit()
+            print(f"  saved: {Path(record.file_path).name}")
+        except Exception as exc:
+            db.rollback()
+            print(f"Restore aborted: the safety backup failed ({exc}).", file=sys.stderr)
+            return 1
+    dispose_engine()  # no connection of ours may stay on the live database
+
+    admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    try:
+        with admin.connect() as conn:
+            others = conn.execute(
+                text("SELECT count(*) FROM pg_stat_activity WHERE datname = :d AND pid <> pg_backend_pid()"),
+                {"d": live},
+            ).scalar()
+            if others:
+                print("Restore aborted: the database is still in use (close HKN Dentaire).", file=sys.stderr)
+                return 1
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{scratch}" WITH (FORCE)'))
+            conn.execute(text(f'CREATE DATABASE "{scratch}"'))
+
+        print(f"Restoring {backup_path.name} into a scratch database...")
+        fatal = _pg_restore_fatal(scratch, backup_path, extra_args=("--single-transaction", "--exit-on-error"))
+        if fatal:
+            with admin.connect() as conn:
+                conn.execute(text(f'DROP DATABASE IF EXISTS "{scratch}" WITH (FORCE)'))
+            print("Restore failed - your current data was NOT changed:", file=sys.stderr)
+            print("\n".join(fatal[:10]), file=sys.stderr)
+            return 1
+
+        # pg_restore's version lookup reopened the app pool on the live
+        # database: close it again, the rename needs zero connections.
+        dispose_engine()
+        with admin.connect() as conn:
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{previous}" WITH (FORCE)'))
+            conn.execute(text(f'ALTER DATABASE "{live}" RENAME TO "{previous}"'))
+            conn.execute(text(f'ALTER DATABASE "{scratch}" RENAME TO "{live}"'))
+    finally:
+        admin.dispose()
+
+    # Attachment files: restore any that the restored records need.
+    settings = get_settings()
+    mirror = Path(settings.backups_dir) / "attachments"
+    restored = 0
+    if mirror.is_dir():
+        for src in mirror.rglob("*"):
+            if src.is_file() and not src.name.endswith(".tmp"):
+                dest = Path(settings.attachments_dir) / src.relative_to(mirror)
+                if not dest.exists():
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, dest)
+                    restored += 1
+    print(f"Restore complete from {backup_path.name} ({restored} attachment file(s) put back).")
+    print(f"The previous data is kept in database '{previous}' until the next restore.")
     print("Start the application normally.")
     return 0
 
 
-def _pg_restore_fatal(target_db: str, backup_path: Path) -> list[str]:
-    """pg_restore into target_db; returns fatal stderr lines (empty = success).
+def _app_is_running() -> bool:
+    import urllib.request
 
-    --clean reports non-zero when dropping objects that exist only in the dump
-    target; "does not exist" noise is treated as non-fatal.
-    """
-    import os
-    import subprocess
+    from app.core.runtime_config import load_runtime_config
 
-    from app.backup.service import _pg_dump_path
-    from app.core.db import get_engine
+    port = load_runtime_config().port
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=2):
+            return True
+    except urllib.error.HTTPError:
+        return True  # it answered (e.g. 503): something is running there
+    except Exception:
+        return False
 
-    url = get_engine().url
-    bin_dir = _pg_dump_path()
-    if bin_dir:
-        exe = Path(bin_dir) / "pg_restore.exe"
-        pg_restore = str(exe) if exe.is_file() else str(Path(bin_dir) / "pg_restore")
-    else:
-        pg_restore = "pg_restore"
 
-    cmd = [
-        pg_restore,
-        "--clean",
-        "--if-exists",
-        # Bare database name: libpq must not receive the SQLAlchemy driver
-        # scheme (postgresql+psycopg://...) — with the driver suffix it can
-        # silently connect elsewhere; host/port/user/password come from the
-        # PG* environment below.
-        "--dbname=" + (target_db or ""),
-        str(backup_path),
-    ]
-    env = {
-        "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
-        "PATH": f"{bin_dir};{os.environ.get('PATH', '')}" if bin_dir else os.environ.get("PATH", ""),
-        "PGHOST": url.host or "127.0.0.1",
-        "PGPORT": str(url.port or 5432),
-        "PGUSER": url.username or "postgres",
-        "PGPASSWORD": url.password or "",
-    }
-    proc = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=600)
-    if proc.returncode != 0:
-        return [
-            line for line in (proc.stderr or "").splitlines()
-            if "does not exist" not in line and line.strip()
-        ]
-    return []
+def _pg_restore_fatal(target_db: str, backup_path: Path, *, extra_args: tuple[str, ...] = ()) -> list[str]:
+    """pg_restore into target_db; returns fatal stderr lines (empty = success)."""
+    from app.backup.service import pg_restore_errors
+
+    return pg_restore_errors(target_db, backup_path, extra_args=extra_args)
 
 
 def _drill(backup: str | None, *, keep: bool) -> int:
@@ -378,6 +435,17 @@ def _prod_password_problem(password: str) -> str | None:
     return None
 
 
+def _password_problem_fr(problem: str) -> str:
+    """French wording of a _prod_password_problem() result (installer screens)."""
+    if problem.startswith("at least 10"):
+        return "Le mot de passe doit contenir au moins 10 caracteres."
+    if problem.startswith("too common"):
+        return "Ce mot de passe est trop courant, choisissez-en un autre."
+    if problem.startswith("must mix"):
+        return "Le mot de passe doit melanger lettres, chiffres et un symbole (ex: ! ? @ # - _)."
+    return problem
+
+
 def _init_prod(args) -> int:
     """One-shot production bootstrap: schema, catalog, first owner, audit.
 
@@ -439,6 +507,9 @@ def _init_prod(args) -> int:
         existing = db.execute(
             select(User).where(User.username == username, User.is_owner.is_(True))
         ).scalar_one_or_none()
+        existing_owner = db.execute(
+            select(User).where(User.is_owner.is_(True)).order_by(User.id)
+        ).scalars().first()
         if existing is not None:
             if args.force:
                 existing.password_hash = hash_password(password)
@@ -454,6 +525,18 @@ def _init_prod(args) -> int:
                     f"Owner '{username}' already exists. Credentials left unchanged.\n"
                     f"To reset the password of '{username}', run this command again with --force."
                 )
+        elif existing_owner is not None:
+            if args.force:
+                print(
+                    f"Owner '{existing_owner.username}' already exists. "
+                    "Use that exact username to reset its credentials.",
+                    file=sys.stderr,
+                )
+                return 1
+            print(
+                f"Owner '{existing_owner.username}' already exists. "
+                "Credentials left unchanged; no additional owner was created."
+            )
         else:
             user = create_user(db, username=username, password=password, full_name=full_name,
                                role="dentiste", is_owner=True)
@@ -549,8 +632,9 @@ def _stop_server() -> int:
         if proc.returncode == 0:
             print("PostgreSQL stopped cleanly. Your data is safe.")
             return 0
-        if "does not appear" in out or "no server" in out.lower():
-            print("PostgreSQL was not running.")
+        if "does not appear" in out or "no server" in out.lower() or "no such process" in out.lower():
+            (pgdata / "postmaster.pid").unlink(missing_ok=True)
+            print("PostgreSQL was not running (stale postmaster.pid cleaned up).")
             return 0
         print(out)
     print("Could not stop PostgreSQL with pg_ctl.", file=sys.stderr)

@@ -44,7 +44,10 @@ try {
     $exePath = Join-Path $scriptsDir "HKN Dentaire.exe"
     if (Test-Path -LiteralPath $exePath) {
         Set-ItemProperty -Path $key -Name "DisplayName" -Value "HKN Dentaire"
-        Set-ItemProperty -Path $key -Name "DisplayVersion" -Value "1.0.0"
+        $version = "0.0.0"
+        $versionFile = Join-Path $RootDir "VERSION"
+        if (Test-Path -LiteralPath $versionFile) { $version = (Get-Content -LiteralPath $versionFile -TotalCount 1).Trim() }
+        Set-ItemProperty -Path $key -Name "DisplayVersion" -Value $version
         Set-ItemProperty -Path $key -Name "Publisher" -Value "HKN Dentaire"
         Set-ItemProperty -Path $key -Name "InstallLocation" -Value $RootDir
         Set-ItemProperty -Path $key -Name "DisplayIcon" -Value $exePath

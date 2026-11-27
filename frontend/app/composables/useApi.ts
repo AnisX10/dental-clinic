@@ -1,7 +1,8 @@
 /**
  * Thin fetch wrapper around the clinic API.
  * - JSON in/out, throws ApiError with message_key for the UI to translate.
- * - 401 clears the auth state (session cookie expired/revoked).
+ * - 401 clears the auth state and returns to /login (session expired/revoked).
+ * - 403 license_locked refreshes the licence state and shows /licence.
  */
 export class ApiError extends Error {
   status: number
@@ -67,6 +68,18 @@ export function useApi() {
         const auth = useAuth()
         auth.user.value = null
         auth.loaded.value = true
+        // Session expired/revoked: go to the login screen instead of leaving
+        // the page full of errors (the caller still gets the error).
+        const route = useRouter().currentRoute.value
+        if (route.path !== "/login" && route.path !== "/licence") void navigateTo("/login", { replace: true })
+      }
+      else if (resp.status === 403 && code === "license_locked") {
+        // The licence state is cached per app load: refresh it, then show the
+        // licence screen (where the key can be pasted).
+        const license = useLicense()
+        void license.fetchStatus(true).finally(() => {
+          if (useRouter().currentRoute.value.path !== "/licence") void navigateTo("/licence", { replace: true })
+        })
       }
       throw new ApiError(resp.status, code, messageKey, err.values ?? null)
     }

@@ -19,6 +19,9 @@ e2e/.auth/
 e2e/test-results/
 tools/license/
 *.lic
+*.key
+keys-batch*.txt
+license-keys*.txt
 
 runtime/
 tools/HKN Dentaire Setup.exe

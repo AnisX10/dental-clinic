@@ -1,0 +1,6 @@
+# Windows scripts must use CRLF: cmd.exe misparses LF-only .bat files
+# (lost first characters of lines, broken goto/labels).
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.vbs text eol=crlf
+*.ps1 text eol=crlf

@@ -33,7 +33,7 @@ class SettingsUpdate(BaseModel):
 
 
 @router.get("")
-def get_settings_view(user: User = Depends(get_current_user), db: OrmSession = Depends(get_db)):
+def get_settings_view(user: User = Depends(get_current_user), db: OrmSession = Depends(get_db, scope="function")):
     settings = get_settings_row(db)
     data = clinic_template_data(settings)
     data["backup_hour"] = settings.backup_hour
@@ -54,7 +54,7 @@ def update_settings(
     payload: SettingsUpdate,
     request: Request,
     user: User = Depends(require_owner),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     settings = get_settings_row(db)
     changes = []

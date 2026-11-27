@@ -14,6 +14,25 @@ scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
 rootDir = fso.GetParentFolderName(scriptDir)
 batPath = fso.BuildPath(scriptDir, "start.bat")
 
+' Port from data\config.json ({"port": 8000, "lan": false}); default 8000.
+Dim appPort
+appPort = ReadPort(fso.BuildPath(rootDir, "data\config.json"))
+
+Function ReadPort(cfgPath)
+    ReadPort = 8000
+    On Error Resume Next
+    If Not fso.FileExists(cfgPath) Then Exit Function
+    Dim txt, re, m
+    txt = fso.OpenTextFile(cfgPath, 1).ReadAll
+    Set re = New RegExp
+    re.Pattern = """port""\s*:\s*(\d+)"
+    Set m = re.Execute(txt)
+    If m.Count > 0 Then
+        If CLng(m(0).SubMatches(0)) >= 1024 And CLng(m(0).SubMatches(0)) <= 65535 Then ReadPort = CLng(m(0).SubMatches(0))
+    End If
+    On Error GoTo 0
+End Function
+
 Dim isAppMode, arg
 isAppMode = False
 For Each arg In WScript.Arguments
@@ -27,7 +46,7 @@ Function IsServerReady()
     Dim http
     Set http = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     http.setTimeouts 500, 500, 500, 500
-    http.open "GET", "http://127.0.0.1:8000/api/health", False
+    http.open "GET", "http://127.0.0.1:" & appPort & "/api/health", False
     http.send
     If Err.Number = 0 Then
         IsServerReady = (http.status = 200)
@@ -66,9 +85,9 @@ If isAppMode Then
         browserPath = FindAppBrowser()
 
         If browserPath <> "" Then
-            shell.Run """" & browserPath & """ --app=http://127.0.0.1:8000", 1, False
+            shell.Run """" & browserPath & """ --app=http://127.0.0.1:" & appPort, 1, False
         Else
-            shell.Run "http://127.0.0.1:8000", 1, False
+            shell.Run "http://127.0.0.1:" & appPort, 1, False
         End If
     Else
         MsgBox "Le serveur HKN Dentaire n'a pas pu demarrer dans le delai imparti." & vbCrLf & vbCrLf & _

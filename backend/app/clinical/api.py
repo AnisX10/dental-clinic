@@ -39,7 +39,7 @@ class NoteUpdate(BaseModel):
 def list_notes(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     service.get_patient_or_404(db, patient_id)
     rows = service.notes_history(db, patient_id)
@@ -50,7 +50,7 @@ def list_notes(
 def latest_note(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     service.get_patient_or_404(db, patient_id)
     note = service.latest_note(db, patient_id)
@@ -62,7 +62,7 @@ def create_note(
     payload: NoteCreate,
     request: Request,
     user: User = Depends(require_dentist),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     data = service.validate_note_input(
         motif=payload.motif,
@@ -89,7 +89,7 @@ def update_note(
     payload: NoteUpdate,
     request: Request,
     user: User = Depends(require_dentist),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     note = service.get_note_or_404(db, note_id)
     data = service.validate_note_input(
@@ -133,7 +133,7 @@ class CatalogItemUpdate(BaseModel):
 def list_catalog(
     include_inactive: bool = True,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     query = select(TreatmentCatalogItem).order_by(TreatmentCatalogItem.category, TreatmentCatalogItem.name)
     if not include_inactive:
@@ -147,7 +147,7 @@ def create_catalog_item(
     payload: CatalogItemCreate,
     request: Request,
     user: User = Depends(require_owner),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     item = service.create_catalog_item(
         db, name=payload.name, category=payload.category, default_price=payload.default_price
@@ -170,7 +170,7 @@ def update_catalog_item(
     payload: CatalogItemUpdate,
     request: Request,
     user: User = Depends(require_owner),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     item = service.get_catalog_item_or_404(db, item_id)
     changes = []
@@ -245,7 +245,7 @@ class TreatmentCreate(BaseModel):
 def list_patient_treatments(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     service.get_patient_or_404(db, patient_id)
     return {"treatments": [service.serialize_treatment(t) for t in service.patient_treatments(db, patient_id)]}
@@ -256,7 +256,7 @@ def add_treatment(
     payload: TreatmentCreate,
     request: Request,
     user: User = Depends(require_dentist),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     treatment = service.add_patient_treatment(
         db,
@@ -290,7 +290,7 @@ def add_treatment(
 def get_odontogram(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     service.get_patient_or_404(db, patient_id)
     return {
@@ -309,7 +309,7 @@ class ToothConditionIn(BaseModel):
 def get_tooth_history(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     service.get_patient_or_404(db, patient_id)
     rows = service.tooth_history(db, patient_id)
@@ -331,7 +331,7 @@ def set_tooth_condition(
     payload: ToothConditionIn,
     request: Request,
     user: User = Depends(require_dentist),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     result = service.set_tooth_condition(
         db,

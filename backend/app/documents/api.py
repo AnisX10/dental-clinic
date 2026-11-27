@@ -31,7 +31,7 @@ def create_document(
     payload: DocumentCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     doc = service.create_document(
         db,
@@ -57,7 +57,7 @@ def create_document(
 def list_patient_documents(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     get_patient_or_404(db, patient_id)
     rows = service.patient_documents(db, patient_id)
@@ -68,7 +68,7 @@ def list_patient_documents(
 def get_document(
     document_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     doc = service.get_document_or_404(db, document_id)
     from app.core.services import get_settings_row
@@ -86,7 +86,7 @@ def update_document(
     payload: DocumentUpdate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     if payload.title is None and payload.content is None:
         raise AppError("errors.invalid_document_content", status_code=400, code="nothing_to_update")

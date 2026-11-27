@@ -6,6 +6,7 @@ export interface LicenseStatus {
   dentist: string | null
   issued_at: string | null
   installation_id: string
+  key_id: string | null
 }
 
 export function useLicense() {
@@ -29,14 +30,14 @@ export function useLicense() {
     return status.value
   }
 
-  async function installContent(content: string) {
+  async function activateKey(key: string) {
     const api = useApi()
-    const data = await api.post<LicenseStatus>("/license/install", { content })
+    const data = await api.post<LicenseStatus>("/license/activate", { key })
     status.value = data
     return data
   }
 
   const locked = computed(() => status.value !== null && !status.value.active)
 
-  return { status, loading, locked, fetchStatus, installContent }
+  return { status, loading, locked, fetchStatus, activateKey }
 }

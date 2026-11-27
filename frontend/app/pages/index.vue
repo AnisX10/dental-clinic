@@ -60,15 +60,33 @@ const labActive = ref(0)
 const labOverdue = ref<LabOrderLite[]>([])
 const lowItems = ref<LowItem[]>([])
 const dormant = ref<DormantPatient[]>([])
-const hasAlerts = computed(() => labActive.value > 0 || labOverdue.value.length > 0 || lowItems.value.length > 0 || dormant.value.length > 0 || backupOverdue.value)
+const hasAlerts = computed(() => labActive.value > 0 || labOverdue.value.length > 0 || lowItems.value.length > 0 || dormant.value.length > 0 || backupProblems.value.length > 0)
 
 // Backup watchdog: warn when the last successful backup is ancient history.
-const backupStatus = ref<{ last_success: { at: string, kind: string } | null } | null>(null)
+interface BackupStatus {
+  last_success: { at: string, kind: string } | null
+  last_failure?: { at: string, kind: string, error: string } | null
+  offsite?: { configured: boolean, error: string }
+  attachments_error?: string
+  disk_low?: boolean
+}
+const backupStatus = ref<BackupStatus | null>(null)
 const backupOverdue = computed(() => {
   const last = backupStatus.value?.last_success
   if (!last) return true
   const at = new Date(last.at).getTime()
   return Number.isNaN(at) || Date.now() - at > 26 * 3600 * 1000
+})
+// Every backup problem gets its own line (message key + detail for support).
+const backupProblems = computed(() => {
+  const s = backupStatus.value
+  const out: { key: string, detail: string }[] = []
+  if (backupOverdue.value) out.push({ key: "today.backup_overdue", detail: "" })
+  if (s?.last_failure) out.push({ key: "today.backup_failed", detail: s.last_failure.error })
+  if (s?.offsite?.configured && s.offsite.error) out.push({ key: "today.backup_offsite_failed", detail: s.offsite.error })
+  if (s?.attachments_error) out.push({ key: "today.backup_failed", detail: s.attachments_error })
+  if (s?.disk_low) out.push({ key: "today.disk_low", detail: "" })
+  return out
 })
 
 function fmtQty(v: string): string {
@@ -114,7 +132,7 @@ async function load() {
         .catch(() => null),
       api.get<{ items: LowItem[], low_count: number }>("/stock", { low_stock: "true" }).catch(() => null),
       api.get<{ patients: DormantPatient[] }>("/patients/dormant", { days: "180", limit: "5" }).catch(() => null),
-      api.get<{ last_success: { at: string, kind: string } | null }>("/backup/status").catch(() => null),
+      api.get<BackupStatus>("/backup/status").catch(() => null),
     ])
     backupStatus.value = bk
     data.value = today
@@ -366,13 +384,13 @@ function statusClass(a: Appt): string {
             </NuxtLink>
           </template>
 
-          <NuxtLink v-if="backupOverdue" to="/parametres" class="alert-item">
+          <NuxtLink v-for="(p, i) in backupProblems" :key="i" to="/parametres" class="alert-item" :title="p.detail">
             <div class="alert-icon-box danger">
               <AppIcon name="alert-circle" size="15" />
             </div>
             <div class="alert-text-box">
-              <span class="alert-main-text danger-text">{{ t("today.backup_overdue") }}</span>
-              <span class="alert-sub-warn">Vérifiez vos sauvegardes</span>
+              <span class="alert-main-text danger-text">{{ t(p.key) }}</span>
+              <span class="alert-sub-warn">{{ t("today.backup_check") }}</span>
             </div>
           </NuxtLink>
         </div>

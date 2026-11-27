@@ -11,6 +11,7 @@ const route = useRoute()
 const router = useRouter()
 const { t, lang, setLang } = useI18n()
 const auth = useAuth()
+const license = useLicense()
 
 const isSidebarCollapsed = ref(false)
 const sidebarOpen = ref(false)
@@ -269,6 +270,10 @@ const userInitials = computed(() => {
 
       <!-- Main Page View -->
       <main class="page-body">
+        <div v-if="license.locked.value" class="license-readonly-banner" role="alert">
+          <span>{{ t("license.readonly_banner") }}</span>
+          <NuxtLink to="/licence">{{ t("license.readonly_action") }}</NuxtLink>
+        </div>
         <slot />
       </main>
     </div>
@@ -282,6 +287,24 @@ const userInitials = computed(() => {
 </template>
 
 <style scoped>
+.license-readonly-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-block-end: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-danger);
+  border-radius: 8px;
+  color: var(--color-danger);
+  font-weight: 500;
+}
+.license-readonly-banner a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
 /* App Shell Grid & Base */
 .app-shell {
   display: flex;

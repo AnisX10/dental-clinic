@@ -223,7 +223,7 @@ function statusClass(a: Appt): string {
           <tr>
             <th style="width:110px;">{{ t("appointment.time") }}</th>
             <th>{{ t("appointment.patient") }}</th>
-            <th style="width:130px;">{{ t("common.status") || "Statut" }}</th>
+            <th style="width:130px;">{{ t("common.statut") }}</th>
             <th style="text-align:end;width:240px;">{{ t("common.actions") }}</th>
           </tr>
         </thead>
@@ -348,7 +348,7 @@ function statusClass(a: Appt): string {
       @close="confirmCancel = null"
     >
       <p style="margin-bottom:16px;">
-        {{ t("action.confirm_cancel") }}
+        {{ t("action.confirmer_cancel") }}
       </p>
       <div class="dialog-actions">
         <button class="btn btn-secondary" @click="confirmCancel = null">

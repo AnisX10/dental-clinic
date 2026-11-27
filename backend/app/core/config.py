@@ -13,9 +13,17 @@ BASE_DIR = Path(__file__).resolve().parents[2]  # backend/
 PROJECT_ROOT = BASE_DIR.parent
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / ".output" / "public"
 
-# Product version: shown in Paramètres, surfaced by `cli.py version` and
-# bumped on every release that reaches a customer machine.
-APP_VERSION = "1.0.0"
+# Product version: single source is the VERSION file at the install root
+# (also read by Setup, the uninstall entry and the release tooling). Bump it
+# on every release that reaches a customer machine.
+def _read_version() -> str:
+    try:
+        return (PROJECT_ROOT / "VERSION").read_text(encoding="utf-8-sig").strip() or "0.0.0"
+    except OSError:
+        return "0.0.0"
+
+
+APP_VERSION = _read_version()
 
 
 class Settings(BaseSettings):
@@ -41,7 +49,7 @@ class Settings(BaseSettings):
     login_window_seconds: int = 300
 
     # Backup defaults (editable in the settings UI, stored in clinic_settings).
-    backup_hour: int = 20
+    backup_hour: int = 13
     backup_keep_daily: int = 14
     backup_keep_manual: int = 5
 

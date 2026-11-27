@@ -92,7 +92,7 @@ class ClinicSettings(Base):
     logo_path: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     header_note: Mapped[str] = mapped_column(Text, nullable=False, default="")
     footer_note: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    backup_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
+    backup_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=13)
     backup_keep_daily: Mapped[int] = mapped_column(Integer, nullable=False, default=14)
     backup_keep_manual: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     # DSP / CNAS defaults (CNAS AS 2 sheet). No official public dental act-code

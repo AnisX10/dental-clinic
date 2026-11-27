@@ -25,7 +25,7 @@ const settings = ref<Settings | null>(null)
 const backup = ref<BackupStatus | null>(null)
 const users = ref<{ id: number, username: string, full_name: string, role: string, is_owner: boolean, is_active: boolean }[]>([])
 const license = ref<LicenseStatus | null>(null)
-const licenseInput = ref<HTMLInputElement | null>(null)
+const licenseKeyInput = ref("")
 const loading = ref(true)
 const errorMsg = ref("")
 const running = ref(false)
@@ -43,15 +43,13 @@ async function loadLicense() {
   }
 }
 
-async function installLicense(e: Event) {
-  const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ""
-  if (!file || installing.value) return
+async function activateLicense() {
+  if (installing.value || !licenseKeyInput.value.trim()) return
   installing.value = true
   errorMsg.value = ""
   try {
-    await licenseApi.installContent(await file.text())
+    await licenseApi.activateKey(licenseKeyInput.value)
+    licenseKeyInput.value = ""
     toast.success("license.installed_ok")
     await loadLicense()
   }
@@ -204,32 +202,45 @@ async function runBackup() {
             <span class="money-label">{{ t("common.statut") }}</span>
             <span class="small">{{ license.active ? t("license.status_ok") : t("license.status_missing") }}</span>
           </div>
-          <template v-if="license.active">
-            <div class="money-row">
-              <span class="money-label">{{ t("license.clinic") }}</span>
-              <span class="small">{{ license.clinic }}</span>
-            </div>
-            <div class="money-row">
-              <span class="money-label">{{ t("license.dentist") }}</span>
-              <span class="small">{{ license.dentist }}</span>
-            </div>
-            <div class="money-row">
-              <span class="money-label">{{ t("license.issued") }}</span>
-              <span class="small">{{ license.issued_at ? dates.fmtDate(license.issued_at) : "" }}</span>
-            </div>
-          </template>
+        <template v-if="license.active">
+          <div class="money-row" v-if="license.key_id">
+            <span class="money-label">{{ t("license.activation_key") }}</span>
+            <span class="small" style="font-family:monospace;">{{ license.key_id }}</span>
+          </div>
           <div class="money-row">
-            <span class="money-label">{{ t("license.installation_id") }}</span>
-            <span class="small" style="font-family:monospace;font-variant-numeric:tabular-nums;user-select:all;">{{ license.installation_id }}</span>
+            <span class="money-label">{{ t("license.clinic") }}</span>
+            <span class="small">{{ license.clinic || "—" }}</span>
           </div>
-          <div v-if="canEdit" class="money-row">
-            <span class="money-label">{{ t("license.install_button") }}</span>
-            <button class="btn btn-secondary" :disabled="installing" @click="licenseInput?.click()">
-              {{ installing ? t("license.installing") : t("license.install_button") }}
-            </button>
+          <div class="money-row">
+            <span class="money-label">{{ t("license.dentist") }}</span>
+            <span class="small">{{ license.dentist || "—" }}</span>
           </div>
-          <input ref="licenseInput" type="file" accept=".lic,application/json,text/plain" style="display:none;" @change="installLicense">
+          <div class="money-row">
+            <span class="money-label">{{ t("license.issued") }}</span>
+            <span class="small">{{ license.issued_at ? dates.fmtDate(license.issued_at) : "—" }}</span>
+          </div>
+        </template>
+        <div class="money-row">
+          <span class="money-label">{{ t("license.installation_id") }}</span>
+          <span class="small" style="font-family:monospace;font-variant-numeric:tabular-nums;user-select:all;">{{ license.installation_id }}</span>
         </div>
+        <div v-if="canEdit" style="margin-top:12px;">
+          <span class="money-label">{{ t("license.install_button") }}</span>
+          <textarea
+            v-model="licenseKeyInput"
+            class="input-area"
+            rows="2"
+            style="margin-top:6px;width:100%;resize:none;white-space:nowrap;"
+            spellcheck="false"
+            autocomplete="off"
+            :placeholder="t('license.key_placeholder')"
+          />
+          <button class="btn btn-secondary" style="margin-top:8px;" :disabled="installing || !licenseKeyInput.trim()" @click="activateLicense">
+            {{ installing ? t("license.installing") : t("license.activate_button") }}
+          </button>
+          <p v-if="errorMsg" class="small" style="color:var(--danger, #b91c1c);margin-top:8px;">{{ t(errorMsg) }}</p>
+        </div>
+      </div>
 
         <div v-if="canEdit" style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;">
           <button class="btn btn-secondary" :disabled="running" @click="runBackup">

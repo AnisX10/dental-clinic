@@ -27,7 +27,7 @@ class PaymentCreate(BaseModel):
 def patient_ledger(
     patient_id: int,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     patient = get_patient_or_404(db, patient_id)
     ledger = service.patient_ledger(db, patient)
@@ -45,7 +45,7 @@ def create_payment(
     payload: PaymentCreate,
     request: Request,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     payment = service.create_payment(
         db,
@@ -71,7 +71,7 @@ def create_payment(
 def payments_day(
     day: str,
     user: User = Depends(get_current_user),
-    db: OrmSession = Depends(get_db),
+    db: OrmSession = Depends(get_db, scope="function"),
 ):
     try:
         parsed = dt.date.fromisoformat(day)
